@@ -1,24 +1,23 @@
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 
-import { auth } from '@/auth'
 import { AgentSnippet } from '@/components/onboarding/agent-snippet'
 import { DeleteAccount } from '@/components/settings/delete-account'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AGENTS, LOG_PATH } from '@/lib/agents'
+import { requireOnboardedUser } from '@/lib/auth-guards'
 import { countResumes, getUser } from '@/lib/db/queries'
 
 export const metadata: Metadata = { title: 'Settings' }
 
 export default async function SettingsPage() {
-  const session = await auth()
-  if (!session?.user) redirect('/login')
+  const sessionUser = await requireOnboardedUser()
 
   const [user, resumeCount] = await Promise.all([
-    getUser(session.user.id),
-    countResumes(session.user.id),
+    getUser(sessionUser.id),
+    countResumes(sessionUser.id),
   ])
 
   if (!user) redirect('/login')

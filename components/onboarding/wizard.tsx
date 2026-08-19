@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { ArrowLeft, ArrowRight, Loader2, PartyPopper } from 'lucide-react'
 
-import { finishOnboarding } from '@/app/(app)/onboarding/actions'
+import { finishOnboarding } from '@/app/(onboard)/onboarding/actions'
 import { AgentSnippet } from '@/components/onboarding/agent-snippet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

@@ -2,31 +2,24 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 /**
- * A cheap cookie-presence check, plus the current path as a header.
+ * A cheap cookie-presence check, nothing more.
  *
  * Sessions live in the database, which the edge runtime cannot reach, so this
  * cannot and does not authorize anything. It exists to bounce obviously
  * signed-out visitors before a server component renders. The real
- * authorization is the `await auth()` call in `app/(app)/layout.tsx` and in
- * every route handler.
+ * authorization is `requireUser` / `requireOnboardedUser` in each page, and
+ * `await auth()` in every route handler.
  */
 const SESSION_COOKIES = ['authjs.session-token', '__Secure-authjs.session-token']
-
-/** Server components cannot read the pathname; the protected layout needs it. */
-export const PATHNAME_HEADER = 'x-cadence-pathname'
 
 export function middleware(request: NextRequest) {
   const hasSessionCookie = SESSION_COOKIES.some((name) => request.cookies.has(name))
 
-  if (!hasSessionCookie) {
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('next', request.nextUrl.pathname)
-    return NextResponse.redirect(loginUrl)
-  }
+  if (hasSessionCookie) return NextResponse.next()
 
-  const headers = new Headers(request.headers)
-  headers.set(PATHNAME_HEADER, request.nextUrl.pathname)
-  return NextResponse.next({ request: { headers } })
+  const loginUrl = new URL('/login', request.url)
+  loginUrl.searchParams.set('next', request.nextUrl.pathname)
+  return NextResponse.redirect(loginUrl)
 }
 
 export const config = {
