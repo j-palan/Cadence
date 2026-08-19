@@ -69,7 +69,7 @@ export function HeroDemo() {
         <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
         <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
         <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-          cadence-log.md → resume.tex
+          resume-log.md → resume.tex
         </span>
       </div>
 

@@ -12,7 +12,7 @@ const STEPS = [
   {
     icon: GitBranch,
     title: 'Add one snippet',
-    body: `Paste a five-line instruction into your agent's config. It starts appending your wins to ${LOG_PATH} as they happen.`,
+    body: `Paste one instruction into your agent's config. It starts appending your wins to ${LOG_PATH} as they happen — quantified, grouped by project, no prompting needed.`,
   },
   {
     icon: Sparkles,
