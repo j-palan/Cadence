@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FileCode2, Loader2, Sparkles } from 'lucide-react'
 
+import { GeneratingOverlay } from '@/components/generating-overlay'
 import { LogInput } from '@/components/log-input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -96,7 +97,9 @@ export function ImportForm() {
   const busy = generating || starting
 
   return (
-    <div className="space-y-8">
+    <div className="relative space-y-8">
+      {generating ? <GeneratingOverlay mode="create" source={preview} className="-m-6 rounded-xl" /> : null}
+
       <section className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="resume-name" className="text-xs text-muted-foreground">
@@ -132,14 +135,6 @@ export function ImportForm() {
         </Button>
       </div>
 
-      {generating ? (
-        <pre
-          ref={previewRef}
-          className="max-h-64 overflow-auto rounded-lg border border-border bg-card p-4 text-[11px] leading-relaxed text-muted-foreground"
-        >
-          <code>{preview || 'Waiting for the first tokens…'}</code>
-        </pre>
-      ) : null}
 
       {template ? (
         <>
