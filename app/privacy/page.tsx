@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: 'Privacy policy' }
 
 // Kept as a literal rather than imported from lib/claude — that module is
 // server-only and pulls in the whole SDK for one string.
-const GENERATION_MODEL = 'claude-sonnet-5'
+const GENERATION_MODEL = 'claude-haiku-4-5'
 
 export default function PrivacyPage() {
   return (

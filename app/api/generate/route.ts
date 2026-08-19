@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import { auth } from '@/auth'
 import {
+  MAX_JOB_DESCRIPTION_CHARS,
   MAX_LOG_CHARS,
   describeClaudeError,
   streamResumeSource,
@@ -15,6 +16,7 @@ import {
   getResume,
   updateResume,
 } from '@/lib/db/queries'
+import { isGenerationMode, type GenerationMode } from '@/lib/prompts'
 import { limitGenerate } from '@/lib/ratelimit'
 import { DEFAULT_TEMPLATE, isTemplateId } from '@/lib/templates/meta'
 import { getTemplateSource } from '@/lib/templates/server'
@@ -22,19 +24,22 @@ import { getTemplateSource } from '@/lib/templates/server'
 // Generation can run well past the default limit on a long log.
 export const maxDuration = 120
 
-const bodySchema = z
-  .object({
-    /** Required when creating; optional when regenerating an existing resume. */
-    log: z.string().trim().max(MAX_LOG_CHARS).optional(),
-    template: z.string().refine(isTemplateId, 'Unknown template.').default(DEFAULT_TEMPLATE),
-    name: z.string().trim().min(1).max(120).optional(),
-    /** Present when regenerating rather than creating. */
-    resumeId: z.string().uuid().optional(),
-  })
-  .refine(
-    (body) => Boolean(body.resumeId) || (body.log?.length ?? 0) >= 20,
-    'Add a bit more log content first.',
-  )
+const MIN_LOG_CHARS = 20
+
+const bodySchema = z.object({
+  mode: z
+    .string()
+    .refine(isGenerationMode, 'Unknown mode.')
+    .default('create' satisfies GenerationMode),
+  /** Required for `create`; optional for `update` (falls back to the stored log). */
+  log: z.string().trim().max(MAX_LOG_CHARS).optional(),
+  /** Required for `tailor`. */
+  jobDescription: z.string().trim().max(MAX_JOB_DESCRIPTION_CHARS).optional(),
+  template: z.string().refine(isTemplateId, 'Unknown template.').default(DEFAULT_TEMPLATE),
+  name: z.string().trim().min(1).max(120).optional(),
+  /** Required for `update` and `tailor`. */
+  resumeId: z.string().uuid().optional(),
+})
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -53,35 +58,56 @@ export async function POST(request: Request) {
     )
   }
 
-  const { template, name, resumeId } = parsed.data
+  const { mode, template, name, resumeId, jobDescription } = parsed.data
 
-  // A regenerate must resolve to a row the caller actually owns.
+  // `update` and `tailor` act on an existing document, so they need one — and it
+  // must be one the caller owns.
   let existing = null
-  if (resumeId) {
+  if (mode === 'update' || mode === 'tailor') {
+    if (!resumeId) {
+      return NextResponse.json(
+        { error: `The ${mode} mode needs an existing resume.` },
+        { status: 400 },
+      )
+    }
     existing = await getResume(userId, resumeId)
     if (!existing) {
       return NextResponse.json({ error: 'Resume not found.' }, { status: 404 })
     }
+    if (!existing.latexSource.trim()) {
+      return NextResponse.json({ error: 'This resume is empty.' }, { status: 409 })
+    }
   }
 
-  // On a regenerate with no log in the body, fall back to the log already
-  // stored for this resume. The client never gets to name the source content.
-  let log = parsed.data.log ?? ''
-  let logIsNew = log.length > 0
+  if (mode === 'tailor' && (jobDescription?.length ?? 0) < 50) {
+    return NextResponse.json(
+      { error: 'Paste the job description first.' },
+      { status: 400 },
+    )
+  }
 
-  if (!logIsNew && existing) {
+  // Resolve the log for the modes that read one. On `update` with no log in the
+  // body, fall back to what was stored for this resume — the client never gets
+  // to name the source content.
+  let log = parsed.data.log ?? ''
+  const logIsNew = log.length > 0
+
+  if (mode === 'update' && !logIsNew && existing) {
     const stored = await getLatestLogImport(userId, existing.id)
     if (!stored) {
       return NextResponse.json(
-        { error: 'No log is stored for this resume. Import one from /resume/new.' },
+        { error: 'No log is stored for this resume. Paste one to update from.' },
         { status: 409 },
       )
     }
     log = stored.rawContent
   }
 
-  if (log.trim().length < 20) {
-    return NextResponse.json({ error: 'The log is too short to work with.' }, { status: 400 })
+  if (mode !== 'tailor' && log.trim().length < MIN_LOG_CHARS) {
+    return NextResponse.json(
+      { error: 'Add a bit more log content first.' },
+      { status: 400 },
+    )
   }
 
   // Rate limit before the Claude call — this is the route that costs money.
@@ -93,7 +119,6 @@ export async function POST(request: Request) {
     )
   }
 
-  const templateSource = getTemplateSource(existing?.template ?? template)
   const encoder = new TextEncoder()
   let assembled = ''
 
@@ -101,9 +126,11 @@ export async function POST(request: Request) {
     async start(controller) {
       try {
         for await (const chunk of streamResumeSource({
-          log,
-          templateSource,
+          mode,
+          log: mode === 'tailor' ? undefined : log,
+          templateSource: mode === 'create' ? getTemplateSource(template) : undefined,
           existingSource: existing?.latexSource ?? null,
+          jobDescription: mode === 'tailor' ? jobDescription : undefined,
         })) {
           assembled += chunk
           controller.enqueue(encoder.encode(chunk))
@@ -117,8 +144,8 @@ export async function POST(request: Request) {
           ? await updateResume(userId, existing.id, { latexSource })
           : await createResume(userId, { name, template, latexSource })
 
-        // Only record a log the user actually just supplied — a regenerate off
-        // the stored log would otherwise duplicate it on every run.
+        // Only record a log the user actually just supplied — updating off the
+        // stored log would otherwise duplicate it on every run.
         if (resume && logIsNew) {
           await createLogImport(userId, { resumeId: resume.id, rawContent: log })
         }

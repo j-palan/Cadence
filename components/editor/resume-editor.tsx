@@ -14,10 +14,12 @@ import {
   Play,
   RefreshCw,
   ScrollText,
+  Target,
 } from 'lucide-react'
 
 import { EditorBoundary } from '@/components/editor/editor-boundary'
 import { PdfPane } from '@/components/editor/pdf-pane'
+import { TailorDialog } from '@/components/editor/tailor-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,6 +31,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { readGenerateStream } from '@/lib/generate-stream'
+import type { GenerationMode } from '@/lib/prompts'
 import type { CompileFailureBody, LatexError } from '@/lib/latex-client'
 import { templateName } from '@/lib/templates/meta'
 
@@ -73,6 +76,8 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
   const [notice, setNotice] = useState<string | null>('Compiling for the first time…')
   const [logOpen, setLogOpen] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [tailorOpen, setTailorOpen] = useState(false)
+  const [tailorError, setTailorError] = useState<string | null>(null)
   const [engine, setEngine] = useState<string | null>(null)
   // True when the source has changed since the last successful compile, so the
   // preview on screen is out of date.
@@ -236,34 +241,49 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
     URL.revokeObjectURL(url)
   }
 
-  async function regenerate() {
+  /**
+   * Runs an AI pass over the document — `update` from the log, or `tailor`
+   * toward a job description.
+   *
+   * The log is never sent from the client on an update: the server looks it up
+   * from resumeId, so the source content cannot be substituted.
+   */
+  async function runGeneration(mode: Exclude<GenerationMode, 'create'>, jobDescription?: string) {
     setRegenerating(true)
     setNotice(null)
+    setTailorError(null)
 
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // The stored log is looked up server-side from resumeId; sending it from
-        // the client would let anyone regenerate against arbitrary content.
-        body: JSON.stringify({ resumeId: resume.id, template: resume.template }),
+        body: JSON.stringify({
+          mode,
+          resumeId: resume.id,
+          template: resume.template,
+          ...(jobDescription ? { jobDescription } : {}),
+        }),
       })
 
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(body?.error ?? `Regeneration failed (${response.status})`)
+        throw new Error(body?.error ?? `Generation failed (${response.status})`)
       }
 
       const result = await readGenerateStream(response, setSource)
       if (result.error) throw new Error(result.error)
 
       setSource(result.source)
-      setSaveState('saved')
       sourceRef.current = result.source
+      setSaveState('saved')
+      setTailorOpen(false)
       await compile()
       setStale(false)
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Regeneration failed.')
+      const message = error instanceof Error ? error.message : 'Generation failed.'
+      // Keep the dialog open on failure so the pasted posting is not lost.
+      if (mode === 'tailor') setTailorError(message)
+      else setNotice(message)
     } finally {
       setRegenerating(false)
     }
@@ -298,11 +318,28 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
 
         <div className="ml-auto flex items-center gap-2">
           {hasLog ? (
-            <Button variant="ghost" size="sm" onClick={regenerate} disabled={busy}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void runGeneration('update')}
+              disabled={busy}
+              title="Merge anything new in your log into this resume"
+            >
               {regenerating ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-              <span className="hidden sm:inline">Regenerate from log</span>
+              <span className="hidden md:inline">Update from log</span>
             </Button>
           ) : null}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setTailorOpen(true)}
+            disabled={busy}
+            title="Align wording with a job description"
+          >
+            <Target />
+            <span className="hidden md:inline">Tailor</span>
+          </Button>
 
           {log ? (
             <Button variant="ghost" size="sm" onClick={() => setLogOpen(true)}>
@@ -367,6 +404,17 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
             : null}
         </span>
       </div>
+
+      <TailorDialog
+        open={tailorOpen}
+        onOpenChange={(next) => {
+          setTailorOpen(next)
+          if (!next) setTailorError(null)
+        }}
+        onSubmit={(jobDescription) => void runGeneration('tailor', jobDescription)}
+        pending={regenerating}
+        error={tailorError}
+      />
 
       <Dialog open={logOpen} onOpenChange={setLogOpen}>
         <DialogContent className="max-w-3xl">

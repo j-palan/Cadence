@@ -79,6 +79,7 @@ export function ImportForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          mode: 'create',
           log,
           template: DEFAULT_TEMPLATE,
           name: name.trim() || undefined,
