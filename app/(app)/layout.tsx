@@ -1,4 +1,5 @@
 import { AppNav } from '@/components/app-nav'
+import { SiteFooter } from '@/components/site-footer'
 import { requireUser } from '@/lib/auth-guards'
 
 /**
@@ -15,6 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen flex-col">
       <AppNav user={user} />
       <div className="flex-1">{children}</div>
+      <SiteFooter />
     </div>
   )
 }

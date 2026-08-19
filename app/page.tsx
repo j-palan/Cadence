@@ -3,8 +3,8 @@ import { ArrowRight } from 'lucide-react'
 
 import { auth } from '@/auth'
 import { TransformPreview } from '@/components/landing/transform-preview'
+import { SiteFooterContent } from '@/components/site-footer'
 import { Wordmark } from '@/components/wordmark'
-import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { AGENTS, LOG_PATH } from '@/lib/agents'
 
@@ -35,7 +35,6 @@ export default async function LandingPage() {
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
           <Wordmark />
           <div className="flex items-center gap-1">
-            <ThemeToggle />
             <Button asChild variant="ghost" size="sm">
               <Link href={appHref}>{signedIn ? 'Dashboard' : 'Sign in'}</Link>
             </Button>
@@ -121,19 +120,7 @@ export default async function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-8 text-xs text-muted-foreground">
-          <span className="font-mono">cadence</span>
-          <nav className="flex gap-5">
-            <Link href="/terms" className="transition-colors hover:text-foreground">
-              Terms
-            </Link>
-            <Link href="/privacy" className="transition-colors hover:text-foreground">
-              Privacy
-            </Link>
-          </nav>
-        </div>
-      </footer>
+      <SiteFooterContent />
     </div>
   )
 }

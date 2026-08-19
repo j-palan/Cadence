@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react'
 import { auth, googleConfigured } from '@/auth'
 import { DevSignIn } from '@/components/auth/dev-sign-in'
 import { SignInButton } from '@/components/auth/sign-in-button'
-import { ThemeToggle } from '@/components/theme-toggle'
+import { SiteFooterContent } from '@/components/site-footer'
 import { Wordmark } from '@/components/wordmark'
 
 export const metadata: Metadata = { title: 'Sign in' }
@@ -39,7 +39,6 @@ export default async function LoginPage({
     <div className="flex min-h-dvh flex-col">
       <header className="flex h-16 items-center justify-between px-6">
         <Wordmark />
-        <ThemeToggle />
       </header>
 
       <main className="flex flex-1 items-center justify-center px-6 pb-24">
@@ -91,6 +90,8 @@ export default async function LoginPage({
           </Link>
         </div>
       </main>
+
+      <SiteFooterContent />
     </div>
   )
 }

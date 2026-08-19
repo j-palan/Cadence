@@ -1,5 +1,6 @@
 import { SignOutItem } from '@/components/auth/sign-out-item'
-import { ThemeToggle } from '@/components/theme-toggle'
+import { HelpDialog } from '@/components/help-dialog'
+import { SiteFooterContent } from '@/components/site-footer'
 import { Wordmark } from '@/components/wordmark'
 import {
   DropdownMenu,
@@ -32,7 +33,6 @@ export default async function OnboardingLayout({
           <Wordmark href={null} />
 
           <div className="flex items-center gap-1">
-            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger className="rounded-md px-2 py-1 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 {user.email}
@@ -48,6 +48,7 @@ export default async function OnboardingLayout({
       </header>
 
       <div className="flex-1">{children}</div>
+      <SiteFooterContent />
     </div>
   )
 }
