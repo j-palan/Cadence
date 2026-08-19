@@ -17,6 +17,7 @@ import {
   Target,
 } from 'lucide-react'
 
+import { GeneratingOverlay } from '@/components/generating-overlay'
 import { EditorBoundary } from '@/components/editor/editor-boundary'
 import { PdfPane } from '@/components/editor/pdf-pane'
 import { TailorDialog } from '@/components/editor/tailor-dialog'
@@ -81,6 +82,8 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
   const [tailorError, setTailorError] = useState<string | null>(null)
   const [updateOpen, setUpdateOpen] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
+  // Which pass is running, so the overlay can name it.
+  const [activeMode, setActiveMode] = useState<GenerationMode | null>(null)
   const [engine, setEngine] = useState<string | null>(null)
   // True when the source has changed since the last successful compile, so the
   // preview on screen is out of date.
@@ -256,9 +259,16 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
     payload: { log?: string; jobDescription?: string; customInstructions?: string } = {},
   ) {
     setRegenerating(true)
+    setActiveMode(mode)
     setNotice(null)
     setTailorError(null)
     setUpdateError(null)
+
+    // Close the dialog straight away so the overlay is visible. The dialog
+    // components keep their own text state, so reopening on failure restores
+    // whatever was pasted.
+    setUpdateOpen(false)
+    setTailorOpen(false)
 
     try {
       const response = await fetch('/api/generate', {
@@ -283,18 +293,23 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
       setSource(result.source)
       sourceRef.current = result.source
       setSaveState('saved')
-      setTailorOpen(false)
-      setUpdateOpen(false)
       await compile()
       setStale(false)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Generation failed.'
-      // Keep the dialog open on failure so what was pasted is not lost.
-      if (mode === 'tailor') setTailorError(message)
-      else if (mode === 'update') setUpdateError(message)
-      else setNotice(message)
+      // Reopen the dialog with the error so the pasted text is not lost.
+      if (mode === 'tailor') {
+        setTailorError(message)
+        setTailorOpen(true)
+      } else if (mode === 'update') {
+        setUpdateError(message)
+        setUpdateOpen(true)
+      } else {
+        setNotice(message)
+      }
     } finally {
       setRegenerating(false)
+      setActiveMode(null)
     }
   }
 
@@ -373,27 +388,33 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
         </div>
       </div>
 
-      <Group orientation="horizontal" className="flex-1 overflow-hidden">
-        <Panel defaultSize="50%" minSize="25%" className="overflow-hidden">
-          <EditorBoundary value={source} onChange={onSourceChange}>
-            <CodePane value={source} onChange={onSourceChange} onSave={saveAndCompileNow} />
-          </EditorBoundary>
-        </Panel>
+      <div className="relative flex-1 overflow-hidden">
+        {regenerating && activeMode ? (
+          <GeneratingOverlay mode={activeMode} source={source} />
+        ) : null}
 
-        <Separator className="w-1 cursor-col-resize bg-border transition-colors hover:bg-success data-[state=dragging]:bg-success" />
+        <Group orientation="horizontal" className="h-full overflow-hidden">
+          <Panel defaultSize="50%" minSize="25%" className="overflow-hidden">
+            <EditorBoundary value={source} onChange={onSourceChange}>
+              <CodePane value={source} onChange={onSourceChange} onSave={saveAndCompileNow} />
+            </EditorBoundary>
+          </Panel>
 
-        <Panel defaultSize="50%" minSize="25%" className="overflow-hidden">
-          <PdfPane
-            url={pdfUrl}
-            stale={stale}
-            status={compileState}
-            errors={errors}
-            log={log}
-            message={notice}
-            onShowLog={() => setLogOpen(true)}
-          />
-        </Panel>
-      </Group>
+          <Separator className="w-1 cursor-col-resize bg-border transition-colors hover:bg-success data-[state=dragging]:bg-success" />
+
+          <Panel defaultSize="50%" minSize="25%" className="overflow-hidden">
+            <PdfPane
+              url={pdfUrl}
+              stale={stale}
+              status={compileState}
+              errors={errors}
+              log={log}
+              message={notice}
+              onShowLog={() => setLogOpen(true)}
+            />
+          </Panel>
+        </Group>
+      </div>
 
       <div className="flex items-center justify-between gap-3 border-t border-border bg-background px-4 py-2 text-[11px] text-muted-foreground">
         <span className="font-mono">
