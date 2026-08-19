@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, RefreshCw } from 'lucide-react'
+import { Loader2, Sparkles } from 'lucide-react'
 
+import { InstructionsField } from '@/components/editor/instructions-field'
 import { LogInput } from '@/components/log-input'
 import { Button } from '@/components/ui/button'
 import {
@@ -37,12 +38,13 @@ export function UpdateDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (log: string) => void
+  onSubmit: (log: string, customInstructions: string) => void
   pending: boolean
   error: string | null
   lastImportedAt: string | null
 }) {
   const [log, setLog] = useState('')
+  const [instructions, setInstructions] = useState('')
   const tooShort = log.trim().length < MIN_CHARS
 
   return (
@@ -50,7 +52,7 @@ export function UpdateDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4 text-success" />
+            <Sparkles className="h-4 w-4 text-success" />
             {MODE_LABELS.update.title}
           </DialogTitle>
           <DialogDescription>{MODE_LABELS.update.description}</DialogDescription>
@@ -82,14 +84,27 @@ export function UpdateDialog({
           />
         </div>
 
-        {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+        <div className="mt-5">
+          <InstructionsField
+            value={instructions}
+            onChange={setInstructions}
+            disabled={pending}
+            examples={'e.g. "keep it to 3 bullets per job", "let it run to two pages", "lead with the Cadence work", "drop the older internships"'}
+          />
+        </div>
+
+        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>
             Cancel
           </Button>
-          <Button variant="success" onClick={() => onSubmit(log)} disabled={pending || tooShort}>
-            {pending ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+          <Button
+            variant="success"
+            onClick={() => onSubmit(log, instructions)}
+            disabled={pending || tooShort}
+          >
+            {pending ? <Loader2 className="animate-spin" /> : <Sparkles />}
             Update resume
           </Button>
         </DialogFooter>

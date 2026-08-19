@@ -145,6 +145,6 @@ tasks:
         for v in AUTH_SECRET DATABASE_URL DATABASE_URL_UNPOOLED; do
           grep -qE "^$v=.+" .env.local 2>/dev/null && ok "$v set" || no "$v missing (required)"
         done
-        for v in ANTHROPIC_API_KEY AUTH_GOOGLE_ID AUTH_GOOGLE_SECRET; do
+        for v in GEMINI_API_KEY AUTH_GOOGLE_ID AUTH_GOOGLE_SECRET; do
           grep -qE "^$v=.+" .env.local 2>/dev/null && ok "$v set" || printf "  \033[33m–\033[0m %s\n" "$v not set (optional)"
         done

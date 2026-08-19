@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Loader2, Target } from 'lucide-react'
 
+import { InstructionsField } from '@/components/editor/instructions-field'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -34,11 +35,12 @@ export function TailorDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (jobDescription: string) => void
+  onSubmit: (jobDescription: string, customInstructions: string) => void
   pending: boolean
   error: string | null
 }) {
   const [text, setText] = useState('')
+  const [instructions, setInstructions] = useState('')
   const tooShort = text.trim().length < MIN_CHARS
 
   return (
@@ -70,7 +72,16 @@ export function TailorDialog({
           </p>
         </div>
 
-        {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+        <div className="mt-5">
+          <InstructionsField
+            value={instructions}
+            onChange={setInstructions}
+            disabled={pending}
+            examples={'e.g. "emphasise the backend work", "use their exact phrasing for the platform team", "do not touch the projects section"'}
+          />
+        </div>
+
+        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>
@@ -78,7 +89,7 @@ export function TailorDialog({
           </Button>
           <Button
             variant="success"
-            onClick={() => onSubmit(text)}
+            onClick={() => onSubmit(text, instructions)}
             disabled={pending || tooShort}
           >
             {pending ? <Loader2 className="animate-spin" /> : <Target />}

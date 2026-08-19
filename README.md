@@ -25,7 +25,7 @@ Without go-task, the equivalent is `npm install && npm run pdf:worker &&
 npm run db:migrate && npm run tex:warm && npm run dev`.
 
 The detail behind each step is below. Only **Node**, **a Postgres database**, and
-**a LaTeX engine** are actually required — Google OAuth, the Anthropic key, and
+**a LaTeX engine** are actually required — Google OAuth, the Gemini key, and
 Upstash all degrade gracefully so you can get the app on screen first and add
 them as you need them.
 
@@ -38,7 +38,7 @@ them as you need them.
 | **Node 20+** | Next.js 14 | Built and tested on Node 22 |
 | **A LaTeX engine** | Compiling resumes to PDF | `brew install tectonic` — one ~30MB binary that downloads only the packages a document uses. An existing TeX Live / MacTeX install works too; Cadence falls back to `pdflatex`. |
 | **A Postgres database** | Users, resumes, logs | A free [Neon](https://neon.tech) project is the path of least resistance — it is serverless, so there is nothing to run locally. |
-| **An Anthropic API key** | Generating a resume from a log | Optional. Without it the editor works fine; only "Generate from log" is unavailable. |
+| **A Gemini API key** | Generating a resume from a log | Optional, and free — get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). Without it the editor works fine; only generation is unavailable. |
 
 ### On the LaTeX engine
 
@@ -99,10 +99,10 @@ DATABASE_URL=           # pooled   — the app at runtime
 DATABASE_URL_UNPOOLED=  # direct   — drizzle-kit migrations
 ```
 
-Add your Anthropic key when you want resume generation:
+Add your Gemini key when you want resume generation (the free tier is enough):
 
 ```bash
-ANTHROPIC_API_KEY=      # console.anthropic.com/settings/keys
+GEMINI_API_KEY=         # aistudio.google.com/apikey
 ```
 
 ### 4. Create the tables
@@ -233,14 +233,15 @@ app/
     settings/            Account, agent snippets, deletion
   api/
     auth/[...nextauth]/  Auth.js handlers
-    generate/            POST: log → Claude → LaTeX (streamed)
+    generate/            POST: log → Gemini → LaTeX (streamed); 3 modes
     compile/             POST: LaTeX → PDF (Tectonic / pdflatex)
     resumes/             POST create from template; PATCH/DELETE by id
     account/             DELETE: cascades to everything
 lib/
   db/queries.ts          ALL data access; every function takes userId first
   latex.ts               Engine invocation, sandboxing, log parsing
-  claude.ts              Anthropic wrapper + the generation prompt
+  gemini.ts              Gemini client + streaming
+  prompts.ts             The three system prompts (create / update / tailor)
   templates/jake.tex     The resume template
   agents.ts              Per-agent snippets and config paths
 ```
