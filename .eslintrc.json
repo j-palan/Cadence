@@ -1,0 +1,26 @@
+{
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "@next/next/no-img-element": "off"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.ts", "**/*.tsx"],
+      "excludedFiles": ["lib/db/**", "auth.ts", "drizzle.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@/lib/db",
+                "importNames": ["db"],
+                "message": "Do not import `db` outside lib/db/. All data access goes through lib/db/queries.ts, where every function takes userId as its first argument."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
