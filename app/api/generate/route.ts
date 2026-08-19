@@ -3,12 +3,13 @@ import { z } from 'zod'
 
 import { auth } from '@/auth'
 import {
+  MAX_CUSTOM_INSTRUCTIONS_CHARS,
   MAX_JOB_DESCRIPTION_CHARS,
   MAX_LOG_CHARS,
-  describeClaudeError,
+  describeGenerationError,
   streamResumeSource,
   stripCodeFences,
-} from '@/lib/claude'
+} from '@/lib/gemini'
 import {
   createLogImport,
   createResume,
@@ -35,6 +36,8 @@ const bodySchema = z.object({
   log: z.string().trim().max(MAX_LOG_CHARS).optional(),
   /** Required for `tailor`. */
   jobDescription: z.string().trim().max(MAX_JOB_DESCRIPTION_CHARS).optional(),
+  /** Free-text guidance from the user; overrides the layout defaults. */
+  customInstructions: z.string().trim().max(MAX_CUSTOM_INSTRUCTIONS_CHARS).optional(),
   template: z.string().refine(isTemplateId, 'Unknown template.').default(DEFAULT_TEMPLATE),
   name: z.string().trim().min(1).max(120).optional(),
   /** Required for `update` and `tailor`. */
@@ -58,7 +61,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const { mode, template, name, resumeId, jobDescription } = parsed.data
+  const { mode, template, name, resumeId, jobDescription, customInstructions } = parsed.data
 
   // `update` and `tailor` act on an existing document, so they need one — and it
   // must be one the caller owns.
@@ -131,6 +134,7 @@ export async function POST(request: Request) {
           templateSource: mode === 'create' ? getTemplateSource(template) : undefined,
           existingSource: existing?.latexSource ?? null,
           jobDescription: mode === 'tailor' ? jobDescription : undefined,
+          customInstructions,
         })) {
           assembled += chunk
           controller.enqueue(encoder.encode(chunk))
@@ -155,7 +159,7 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(`\n%%cadence:resume-id:${resume?.id ?? ''}%%`))
         controller.close()
       } catch (error) {
-        const { message } = describeClaudeError(error)
+        const { message } = describeGenerationError(error)
         console.error('[generate]', error)
         // Headers are already sent, so the error has to ride the body.
         controller.enqueue(encoder.encode(`\n%%cadence:error:${message}%%`))

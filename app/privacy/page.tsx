@@ -4,9 +4,9 @@ import { LegalPage } from '@/components/legal-page'
 
 export const metadata: Metadata = { title: 'Privacy policy' }
 
-// Kept as a literal rather than imported from lib/claude — that module is
+// Kept as a literal rather than imported from lib/gemini — that module is
 // server-only and pulls in the whole SDK for one string.
-const GENERATION_MODEL = 'claude-haiku-4-5'
+const GENERATION_MODEL = 'gemini-2.5-flash'
 
 export default function PrivacyPage() {
   return (
@@ -32,9 +32,19 @@ export default function PrivacyPage() {
       <section className="space-y-2">
         <h2>Who it is shared with</h2>
         <p>
-          Log content and resume source are sent to Anthropic&apos;s API to generate a resume, using
-          the <span className="font-mono">{GENERATION_MODEL}</span> model. Nothing is sold, and
-          nothing is used to train a model. Data is stored in a managed Postgres database.
+          Log content and resume source are sent to Google&apos;s Gemini API to generate a resume,
+          using the <span className="font-mono">{GENERATION_MODEL}</span> model. Nothing is sold.
+          Data is stored in a managed Postgres database. Note that Google&apos;s free Gemini tier
+          may use submitted content to improve their models — see{' '}
+          <a
+            href="https://ai.google.dev/gemini-api/terms"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:text-foreground"
+          >
+            the Gemini API terms
+          </a>
+          .
         </p>
       </section>
 

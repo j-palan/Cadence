@@ -12,8 +12,8 @@ import {
   FileText,
   Loader2,
   Play,
-  RefreshCw,
   ScrollText,
+  Sparkles,
   Target,
 } from 'lucide-react'
 
@@ -253,7 +253,7 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
    */
   async function runGeneration(
     mode: Exclude<GenerationMode, 'create'>,
-    payload: { log?: string; jobDescription?: string } = {},
+    payload: { log?: string; jobDescription?: string; customInstructions?: string } = {},
   ) {
     setRegenerating(true)
     setNotice(null)
@@ -333,8 +333,8 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
             disabled={busy}
             title="Merge anything new in your log into this resume"
           >
-            <RefreshCw />
-            <span className="hidden md:inline">Update from log</span>
+            {regenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
+            <span className="hidden md:inline">Update</span>
           </Button>
 
           <Button
@@ -418,7 +418,9 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
           setUpdateOpen(next)
           if (!next) setUpdateError(null)
         }}
-        onSubmit={(log) => void runGeneration('update', { log })}
+        onSubmit={(log, customInstructions) =>
+          void runGeneration('update', { log, customInstructions: customInstructions || undefined })
+        }
         pending={regenerating}
         error={updateError}
         lastImportedAt={lastLogImportedAt}
@@ -430,7 +432,12 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
           setTailorOpen(next)
           if (!next) setTailorError(null)
         }}
-        onSubmit={(jobDescription) => void runGeneration('tailor', { jobDescription })}
+        onSubmit={(jobDescription, customInstructions) =>
+          void runGeneration('tailor', {
+            jobDescription,
+            customInstructions: customInstructions || undefined,
+          })
+        }
         pending={regenerating}
         error={tailorError}
       />
