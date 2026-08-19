@@ -12,16 +12,17 @@ source on the left, compiled PDF on the right — starting from
 
 ## Quickstart
 
-Five commands, assuming you have Node 20+ and Homebrew:
+Assuming Node 20+, Homebrew, and [go-task](https://taskfile.dev):
 
 ```bash
-npm install
-brew install tectonic          # the LaTeX engine
+brew install tectonic go-task  # LaTeX engine + task runner
 cp .env.example .env.local     # then fill in DATABASE_URL + AUTH_SECRET
-npm run db:migrate             # create the tables
-npm run tex:warm               # ~20s once, so no page load pays for it
-npm run dev                    # http://localhost:3003
+task setup                     # deps, pdf worker, migrations, TeX cache
+task start                     # http://localhost:3003
 ```
+
+Without go-task, the equivalent is `npm install && npm run pdf:worker &&
+npm run db:migrate && npm run tex:warm && npm run dev`.
 
 The detail behind each step is below. Only **Node**, **a Postgres database**, and
 **a LaTeX engine** are actually required — Google OAuth, the Anthropic key, and
@@ -174,15 +175,45 @@ The login page shows the Google button as soon as both are present.
 
 ---
 
-## Scripts
+## Running it
+
+The dev server runs in the background, so `task start` returns once it is ready
+rather than occupying a terminal:
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Dev server on :3003 |
+| `task start` | Start the dev server in the background; waits for ready |
+| `task stop` | Stop it |
+| `task restart` | Both |
+| `task status` | Whether it is up, and what it answers with |
+| `task logs` | Follow its output |
+| `task doctor` | Check prerequisites and which env vars are set |
+| `task setup` | One-time: deps, pdf worker, migrations, TeX cache |
+| `task check` | Typecheck, lint, build |
+
+`task start` is idempotent — running it twice will not start a second server.
+Override the port with `task start PORT=3010`; every command takes the same flag,
+so `task stop PORT=3010` stops only that one.
+
+Stopping targets this project's port and pidfile only. Avoid
+`pkill -f "next dev"` — it matches every Next dev server on the machine, not
+just this one.
+
+`task logs` needs a terminal; use `npm run dev` if you would rather have the
+server in the foreground and `Ctrl+C` it.
+
+## Scripts
+
+Underlying npm scripts, if you prefer them or don't have go-task:
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Dev server on :3003, in the foreground |
 | `npm run build` / `npm start` | Production build and serve |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint, including the data-access rule below |
 | `npm run tex:warm` | Populate the LaTeX package cache |
+| `npm run pdf:worker` | Copy the pdf.js worker into `public/` (runs on install) |
 | `npm run db:generate` | Write a migration from schema changes |
 | `npm run db:migrate` | Apply pending migrations |
 | `npm run db:studio` | Browse the database |
