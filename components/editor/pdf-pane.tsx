@@ -7,6 +7,11 @@ import { Button } from '@/components/ui/button'
 import type { LatexError } from '@/lib/latex-client'
 import { cn } from '@/lib/utils'
 
+// Type-only import: erased at build time, so pdf.js itself stays dynamically
+// imported and out of the initial bundle. Using the library's real types rather
+// than hand-written shims is what keeps API drift a compile error.
+import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
+
 /**
  * Renders the PDF page-by-page onto canvases with pdf.js.
  *
@@ -15,26 +20,13 @@ import { cn } from '@/lib/utils'
  * Drawing the pages ourselves means the pane is just paper on a backdrop, the
  * way Overleaf does it.
  */
-type PdfDocument = {
-  numPages: number
-  getPage: (n: number) => Promise<PdfPage>
-  destroy: () => Promise<void>
-}
-
-type PdfPage = {
-  getViewport: (options: { scale: number }) => { width: number; height: number }
-  render: (options: {
-    canvasContext: CanvasRenderingContext2D
-    viewport: { width: number; height: number }
-  }) => { promise: Promise<void>; cancel: () => void }
-}
-
 const ZOOM_STEPS = [0.5, 0.65, 0.8, 1, 1.25, 1.5, 2]
-/** A4 width in CSS px at 96dpi, used to derive the fit-to-width scale. */
-const BASE_PAGE_WIDTH = 794
+/** Fallback only. The real page width is read from the document on load. */
+const FALLBACK_PAGE_WIDTH = 612
 
 export function PdfPane({
   url,
+  stale = false,
   status,
   errors,
   log,
@@ -42,6 +34,8 @@ export function PdfPane({
   onShowLog,
 }: {
   url: string | null
+  /** The source has changed since this PDF was produced. */
+  stale?: boolean
   status: 'idle' | 'compiling' | 'ok' | 'failed' | 'unavailable'
   errors: LatexError[]
   log: string
@@ -50,9 +44,15 @@ export function PdfPane({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const pagesRef = useRef<HTMLDivElement>(null)
-  const docRef = useRef<PdfDocument | null>(null)
+  const docRef = useRef<PDFDocumentProxy | null>(null)
+  // In-flight render tasks, cancelled when a newer render supersedes them.
+  const tasksRef = useRef<RenderTask[]>([])
   // Preserved across recompiles so a rebuild does not throw you back to page 1.
   const scrollRatioRef = useRef(0)
+  // The document's own page width in CSS px at scale 1. Read from the PDF rather
+  // than assumed — the bundled template is US Letter, not A4, and fitting
+  // against the wrong constant renders the page too small.
+  const naturalWidthRef = useRef(FALLBACK_PAGE_WIDTH)
 
   const [zoom, setZoom] = useState<number | 'fit'>('fit')
   const [pageCount, setPageCount] = useState(0)
@@ -63,7 +63,7 @@ export function PdfPane({
     (containerWidth: number) => {
       if (zoom !== 'fit') return zoom
       // 48px of breathing room either side, matching the pane padding.
-      return Math.max(0.25, (containerWidth - 48) / BASE_PAGE_WIDTH)
+      return Math.max(0.25, (containerWidth - 48) / naturalWidthRef.current)
     },
     [zoom],
   )
@@ -73,6 +73,10 @@ export function PdfPane({
     const scroller = scrollRef.current
     const doc = docRef.current
     if (!host || !scroller || !doc) return
+
+    // Abandon any render still in flight; its canvases are about to be replaced.
+    for (const task of tasksRef.current) task.cancel()
+    tasksRef.current = []
 
     setRendering(true)
     const scale = effectiveScale(scroller.clientWidth)
@@ -92,8 +96,19 @@ export function PdfPane({
       canvas.style.height = `${Math.floor(viewport.height / dpr)}px`
       canvas.className = 'block bg-white shadow-md'
 
-      const context = canvas.getContext('2d')
-      if (context) await page.render({ canvasContext: context, viewport }).promise
+      // `canvas` is required in pdf.js v6 — passing only `canvasContext` leaves
+      // the render task pending forever and nothing ever paints.
+      const task = page.render({ canvas, viewport })
+      tasksRef.current.push(task)
+
+      try {
+        await task.promise
+      } catch (error) {
+        // A cancelled task is the expected outcome when the user zooms or a
+        // recompile lands mid-render; anything else is worth surfacing.
+        if ((error as { name?: string })?.name !== 'RenderingCancelledException') throw error
+        return
+      }
 
       fragment.append(canvas)
     }
@@ -111,7 +126,7 @@ export function PdfPane({
   // Load the document whenever a fresh compile lands.
   useEffect(() => {
     if (!url) {
-      docRef.current?.destroy().catch(() => {})
+      docRef.current?.loadingTask.destroy().catch(() => {})
       docRef.current = null
       pagesRef.current?.replaceChildren()
       setPageCount(0)
@@ -127,13 +142,16 @@ export function PdfPane({
         const pdfjs = await import('pdfjs-dist')
         pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
-        const doc = (await pdfjs.getDocument({ url }).promise) as unknown as PdfDocument
+        const doc = await pdfjs.getDocument({ url }).promise
         if (cancelled) {
-          await doc.destroy().catch(() => {})
+          await doc.loadingTask.destroy().catch(() => {})
           return
         }
 
-        await docRef.current?.destroy().catch(() => {})
+        const firstPage = await doc.getPage(1)
+        naturalWidthRef.current = firstPage.getViewport({ scale: 1 }).width || FALLBACK_PAGE_WIDTH
+
+        await docRef.current?.loadingTask.destroy().catch(() => {})
         docRef.current = doc
         setPageCount(doc.numPages)
         await render()
@@ -180,7 +198,8 @@ export function PdfPane({
 
   useEffect(() => {
     return () => {
-      docRef.current?.destroy().catch(() => {})
+      for (const task of tasksRef.current) task.cancel()
+      docRef.current?.loadingTask.destroy().catch(() => {})
     }
   }, [])
 
@@ -192,7 +211,8 @@ export function PdfPane({
 
   function step(direction: 1 | -1) {
     const scroller = scrollRef.current
-    const current = zoom === 'fit' ? effectiveScale(scroller?.clientWidth ?? BASE_PAGE_WIDTH) : zoom
+    const current =
+      zoom === 'fit' ? effectiveScale(scroller?.clientWidth ?? naturalWidthRef.current) : zoom
     const next =
       direction === 1
         ? ZOOM_STEPS.find((value) => value > current + 0.01)
@@ -239,8 +259,16 @@ export function PdfPane({
             <Plus />
           </Button>
 
-          <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-            {pageCount > 0 ? `${pageCount} page${pageCount === 1 ? '' : 's'}` : null}
+          <span className="ml-auto flex items-center gap-3">
+            {stale ? (
+              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                Out of date — press ⌘S
+              </span>
+            ) : null}
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {pageCount > 0 ? `${pageCount} page${pageCount === 1 ? '' : 's'}` : null}
+            </span>
           </span>
 
           {rendering || status === 'compiling' ? (
@@ -255,7 +283,13 @@ export function PdfPane({
         className={cn('relative flex-1 overflow-auto', showViewer ? 'p-6' : '')}
       >
         {showViewer ? (
-          <div ref={pagesRef} className="mx-auto flex w-fit flex-col items-center gap-6" />
+          <div
+            ref={pagesRef}
+            className={cn(
+              'mx-auto flex w-fit flex-col items-center gap-6 transition-opacity',
+              stale && 'opacity-60',
+            )}
+          />
         ) : null}
 
         {!showViewer ? (
