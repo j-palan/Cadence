@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: 'Privacy policy' }
 
 // Kept as a literal rather than imported from lib/gemini — that module is
 // server-only and pulls in the whole SDK for one string.
-const GENERATION_MODEL = 'gemini-2.5-flash'
+const GENERATION_MODEL = 'gemini-3.6-flash'
 
 export default function PrivacyPage() {
   return (

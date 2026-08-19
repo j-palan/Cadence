@@ -13,10 +13,41 @@ import {
 export { stripCodeFences }
 
 /**
- * Gemini 2.5 Flash. Generous free tier, and fast enough that a user watching the
- * stream is not left waiting. Override with GEMINI_MODEL if you want Pro.
+ * Gemini 3.6 Flash: what the API's own 404 message recommends, and the model
+ * that actually had capacity in testing. 3.7-flash is newer but returns 503
+ * "experiencing high demand" often enough that leading with it just buys a
+ * couple of wasted retries. Override with GEMINI_MODEL for Pro.
+ *
+ * Pinned rather than using the `gemini-flash-latest` alias: the layout rules are
+ * tuned against a specific model, and an alias can move under you. Note that
+ * `models.list()` still advertises retired models — 2.5-flash lists fine but
+ * returns 404 on generation for new keys — so verify by generating, not listing.
  */
-export const GENERATION_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash'
+export const GENERATION_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.6-flash'
+
+/**
+ * Models tried in order. The free tier returns 503 "experiencing high demand"
+ * on the newest models fairly often, so a second and third choice is the
+ * difference between a working feature and an intermittent one.
+ */
+const MODEL_CHAIN = [
+  ...new Set([GENERATION_MODEL, 'gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-flash-latest']),
+]
+
+const MAX_ATTEMPTS_PER_MODEL = 2
+const BASE_BACKOFF_MS = 700
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/** Transient: worth retrying the same model after a short wait. */
+function isTransient(error: unknown): boolean {
+  return error instanceof ApiError && [429, 500, 502, 503, 504].includes(error.status)
+}
+
+/** The model itself is gone or misnamed — move down the chain immediately. */
+function isModelGone(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404
+}
 
 // Streaming, so the HTTP timeout that constrains a single response does not
 // apply. A long log can produce a long document; leave room.
@@ -110,6 +141,14 @@ function buildUserMessage(input: GenerateResumeInput): string {
   ].join('\n')
 }
 
+/** Raised when the model streams nothing at all — retryable. */
+export class EmptyResponseError extends Error {
+  constructor() {
+    super('Gemini returned an empty response.')
+    this.name = 'EmptyResponseError'
+  }
+}
+
 /** Raised when a safety filter stops the request or the response. */
 export class BlockedError extends Error {
   constructor(reason: string) {
@@ -128,44 +167,76 @@ export async function* streamResumeSource(
   input: GenerateResumeInput,
 ): AsyncGenerator<string, void, unknown> {
   const ai = getClient()
+  let lastError: unknown = null
 
-  const stream = await ai.models.generateContentStream({
-    model: GENERATION_MODEL,
-    contents: buildUserMessage(input),
-    config: {
-      systemInstruction: SYSTEM_PROMPTS[input.mode],
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
-      // Low but non-zero: the layout rules need consistent counting, and a
-      // resume is not a creative writing task.
-      temperature: 0.2,
-      // Thinking helps the model hold the bullet-count and page budget. Leave
-      // the budget dynamic (-1) and keep the thoughts out of the output.
-      thinkingConfig: { thinkingBudget: -1, includeThoughts: false },
-    },
-  })
+  for (const model of MODEL_CHAIN) {
+    for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_MODEL; attempt += 1) {
+      // Once a byte has been handed to the caller the attempt is committed:
+      // restarting would duplicate the document, so the error must propagate.
+      let committed = false
 
-  let sawText = false
+      try {
+        const stream = await ai.models.generateContentStream({
+          model,
+          contents: buildUserMessage(input),
+          config: {
+            systemInstruction: SYSTEM_PROMPTS[input.mode],
+            maxOutputTokens: MAX_OUTPUT_TOKENS,
+            // Low but non-zero: the layout rules need consistent counting, and a
+            // resume is not a creative writing task.
+            temperature: 0.2,
+            // Thinking helps the model hold the bullet-count and page budget.
+            // Dynamic budget, thoughts excluded from the output.
+            thinkingConfig: { thinkingBudget: -1, includeThoughts: false },
+          },
+        })
 
-  for await (const chunk of stream) {
-    // A prompt-level block arrives with no candidates at all.
-    const blockReason = chunk.promptFeedback?.blockReason
-    if (blockReason) throw new BlockedError(blockReason)
+        for await (const chunk of stream) {
+          // A prompt-level block arrives with no candidates at all.
+          const blockReason = chunk.promptFeedback?.blockReason
+          if (blockReason) throw new BlockedError(blockReason)
 
-    const finish = chunk.candidates?.[0]?.finishReason
-    if (finish && !['STOP', 'MAX_TOKENS', 'FINISH_REASON_UNSPECIFIED'].includes(finish)) {
-      throw new BlockedError(finish)
-    }
+          const finish = chunk.candidates?.[0]?.finishReason
+          if (finish && !['STOP', 'MAX_TOKENS', 'FINISH_REASON_UNSPECIFIED'].includes(finish)) {
+            throw new BlockedError(finish)
+          }
 
-    const text = chunk.text
-    if (text) {
-      sawText = true
-      yield text
+          const text = chunk.text
+          if (text) {
+            committed = true
+            yield text
+          }
+        }
+
+        if (!committed) throw new EmptyResponseError()
+        if (model !== MODEL_CHAIN[0]) {
+          console.warn(`[gemini] served by fallback model ${model}`)
+        }
+        return
+      } catch (error) {
+        if (committed) throw error
+
+        lastError = error
+
+        if (isModelGone(error)) {
+          console.warn(`[gemini] ${model} returned 404; trying the next model`)
+          break
+        }
+
+        if (!isTransient(error) && !(error instanceof EmptyResponseError)) throw error
+
+        const isLastTry = attempt === MAX_ATTEMPTS_PER_MODEL - 1
+        if (isLastTry) {
+          console.warn(`[gemini] ${model} unavailable after ${attempt + 1} tries; trying the next model`)
+          break
+        }
+
+        await sleep(BASE_BACKOFF_MS * 2 ** attempt)
+      }
     }
   }
 
-  if (!sawText) {
-    throw new Error('Gemini returned an empty response. Try again.')
-  }
+  throw lastError ?? new Error('Resume generation failed.')
 }
 
 /** Maps SDK errors onto a status code and a message safe to show a user. */
@@ -176,6 +247,9 @@ export function describeGenerationError(error: unknown): { status: number; messa
   if (error instanceof BlockedError) {
     return { status: 422, message: error.message }
   }
+  if (error instanceof EmptyResponseError) {
+    return { status: 502, message: 'Gemini returned nothing. Try again.' }
+  }
   if (error instanceof ApiError) {
     if (error.status === 401 || error.status === 403) {
       return { status: 503, message: 'The configured Gemini API key was rejected.' }
@@ -183,8 +257,22 @@ export function describeGenerationError(error: unknown): { status: number; messa
     if (error.status === 429) {
       return { status: 429, message: 'Gemini rate limit reached. Try again in a moment.' }
     }
+    if ([500, 502, 503, 504].includes(error.status)) {
+      // Every model in the chain was busy; genuinely worth trying again shortly.
+      return {
+        status: 503,
+        message: 'Gemini is busy right now. Give it a moment and press Update again.',
+      }
+    }
     if (error.status === 400) {
       return { status: 400, message: 'The log could not be processed. Try trimming it down.' }
+    }
+    if (error.status === 404) {
+      // Almost always a retired or misspelled model. Name it, so the fix is obvious.
+      return {
+        status: 503,
+        message: `The model "${GENERATION_MODEL}" is not available to this API key. Set GEMINI_MODEL in .env.local to a current model.`,
+      }
     }
     return { status: 502, message: 'The resume service is unavailable right now.' }
   }
