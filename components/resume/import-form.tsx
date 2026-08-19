@@ -2,22 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileCode2, FolderOpen, Loader2, Sparkles } from 'lucide-react'
+import { FileCode2, Loader2, Sparkles } from 'lucide-react'
 
+import { LogInput } from '@/components/log-input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Textarea } from '@/components/ui/textarea'
-import { LOG_PATH } from '@/lib/agents'
 import { readGenerateStream } from '@/lib/generate-stream'
 import { DEFAULT_TEMPLATE, TEMPLATES } from '@/lib/templates/meta'
 
 const MIN_LOG_CHARS = 20
-
-type FilePickerWindow = Window & {
-  showOpenFilePicker?: (options?: unknown) => Promise<Array<{ getFile: () => Promise<File> }>>
-}
 
 export function ImportForm() {
   const router = useRouter()
@@ -27,42 +22,13 @@ export function ImportForm() {
   const [starting, setStarting] = useState(false)
   const [preview, setPreview] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [canPickFile, setCanPickFile] = useState(false)
   const previewRef = useRef<HTMLPreElement>(null)
 
   const template = TEMPLATES.find((t) => t.id === DEFAULT_TEMPLATE)
 
-  // The File System Access API is Chromium-only; feature-detect after mount so
-  // the button simply is not there in Firefox and Safari.
-  useEffect(() => {
-    setCanPickFile(typeof (window as FilePickerWindow).showOpenFilePicker === 'function')
-  }, [])
-
   useEffect(() => {
     previewRef.current?.scrollTo({ top: previewRef.current.scrollHeight })
   }, [preview])
-
-  async function openFile() {
-    const picker = (window as FilePickerWindow).showOpenFilePicker
-    if (!picker) return
-
-    try {
-      const [handle] = await picker({
-        types: [
-          {
-            description: 'Markdown log',
-            accept: { 'text/markdown': ['.md'], 'text/plain': ['.txt'] },
-          },
-        ],
-        multiple: false,
-      })
-      const file = await handle.getFile()
-      setLog(await file.text())
-      setError(null)
-    } catch {
-      // An aborted picker throws; nothing to report.
-    }
-  }
 
   async function generate() {
     if (log.trim().length < MIN_LOG_CHARS) {
@@ -147,32 +113,7 @@ export function ImportForm() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="space-y-1">
-            <h2 className="font-semibold">Bring in your log</h2>
-            <p className="text-sm text-muted-foreground">
-              Paste the contents of <code className="text-primary">{LOG_PATH}</code>, or open the
-              file directly.
-            </p>
-          </div>
-          {canPickFile ? (
-            <Button variant="outline" size="sm" onClick={openFile} disabled={busy}>
-              <FolderOpen />
-              Open file
-            </Button>
-          ) : null}
-        </div>
-
-        <Textarea
-          value={log}
-          onChange={(event) => setLog(event.target.value)}
-          disabled={busy}
-          placeholder={'## cadence\n- Cut p99 latency 840ms → 190ms by batching loader queries…'}
-          className="min-h-64 font-mono text-xs leading-relaxed"
-        />
-        <p className="text-xs text-muted-foreground">{log.length.toLocaleString()} characters</p>
-      </section>
+      <LogInput value={log} onChange={setLog} disabled={busy} label="Bring in your log" />
 
       {error ? (
         <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">

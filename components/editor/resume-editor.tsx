@@ -20,6 +20,7 @@ import {
 import { EditorBoundary } from '@/components/editor/editor-boundary'
 import { PdfPane } from '@/components/editor/pdf-pane'
 import { TailorDialog } from '@/components/editor/tailor-dialog'
+import { UpdateDialog } from '@/components/editor/update-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -61,11 +62,11 @@ export interface ResumeEditorProps {
     latexSource: string
     updatedAt: string
   }
-  /** The stored log, when there is one — enables "Regenerate from log". */
-  hasLog: boolean
+  /** When the log was last imported, if ever. Shown in the update dialog. */
+  lastLogImportedAt: string | null
 }
 
-export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
+export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
   const [source, setSource] = useState(resume.latexSource)
   const [name, setName] = useState(resume.name)
   const [saveState, setSaveState] = useState<SaveState>('saved')
@@ -78,6 +79,8 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
   const [regenerating, setRegenerating] = useState(false)
   const [tailorOpen, setTailorOpen] = useState(false)
   const [tailorError, setTailorError] = useState<string | null>(null)
+  const [updateOpen, setUpdateOpen] = useState(false)
+  const [updateError, setUpdateError] = useState<string | null>(null)
   const [engine, setEngine] = useState<string | null>(null)
   // True when the source has changed since the last successful compile, so the
   // preview on screen is out of date.
@@ -242,16 +245,20 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
   }
 
   /**
-   * Runs an AI pass over the document — `update` from the log, or `tailor`
-   * toward a job description.
+   * Runs an AI pass over the document — `update` against a freshly pasted log,
+   * or `tailor` toward a job description.
    *
-   * The log is never sent from the client on an update: the server looks it up
-   * from resumeId, so the source content cannot be substituted.
+   * Ownership of the resume is still checked server-side from resumeId; the
+   * client only supplies the new material.
    */
-  async function runGeneration(mode: Exclude<GenerationMode, 'create'>, jobDescription?: string) {
+  async function runGeneration(
+    mode: Exclude<GenerationMode, 'create'>,
+    payload: { log?: string; jobDescription?: string } = {},
+  ) {
     setRegenerating(true)
     setNotice(null)
     setTailorError(null)
+    setUpdateError(null)
 
     try {
       const response = await fetch('/api/generate', {
@@ -261,7 +268,7 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
           mode,
           resumeId: resume.id,
           template: resume.template,
-          ...(jobDescription ? { jobDescription } : {}),
+          ...payload,
         }),
       })
 
@@ -277,12 +284,14 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
       sourceRef.current = result.source
       setSaveState('saved')
       setTailorOpen(false)
+      setUpdateOpen(false)
       await compile()
       setStale(false)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Generation failed.'
-      // Keep the dialog open on failure so the pasted posting is not lost.
+      // Keep the dialog open on failure so what was pasted is not lost.
       if (mode === 'tailor') setTailorError(message)
+      else if (mode === 'update') setUpdateError(message)
       else setNotice(message)
     } finally {
       setRegenerating(false)
@@ -317,18 +326,16 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
         <SaveIndicator state={saveState} />
 
         <div className="ml-auto flex items-center gap-2">
-          {hasLog ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void runGeneration('update')}
-              disabled={busy}
-              title="Merge anything new in your log into this resume"
-            >
-              {regenerating ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-              <span className="hidden md:inline">Update from log</span>
-            </Button>
-          ) : null}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setUpdateOpen(true)}
+            disabled={busy}
+            title="Merge anything new in your log into this resume"
+          >
+            <RefreshCw />
+            <span className="hidden md:inline">Update from log</span>
+          </Button>
 
           <Button
             variant="ghost"
@@ -405,13 +412,25 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
         </span>
       </div>
 
+      <UpdateDialog
+        open={updateOpen}
+        onOpenChange={(next) => {
+          setUpdateOpen(next)
+          if (!next) setUpdateError(null)
+        }}
+        onSubmit={(log) => void runGeneration('update', { log })}
+        pending={regenerating}
+        error={updateError}
+        lastImportedAt={lastLogImportedAt}
+      />
+
       <TailorDialog
         open={tailorOpen}
         onOpenChange={(next) => {
           setTailorOpen(next)
           if (!next) setTailorError(null)
         }}
-        onSubmit={(jobDescription) => void runGeneration('tailor', jobDescription)}
+        onSubmit={(jobDescription) => void runGeneration('tailor', { jobDescription })}
         pending={regenerating}
         error={tailorError}
       />

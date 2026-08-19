@@ -5,6 +5,8 @@
  * carrying either the new resume's id or an error message — headers are long
  * gone by the time generation can fail, so the outcome has to ride the body.
  */
+import { stripCodeFences } from './latex-client'
+
 const ID_MARKER = /%%cadence:resume-id:([0-9a-f-]*)%%/i
 const ERROR_MARKER = /%%cadence:error:([\s\S]*?)%%/i
 
@@ -18,7 +20,9 @@ export function splitMarkers(raw: string): GenerateStreamResult {
   const idMatch = raw.match(ID_MARKER)
   const errorMatch = raw.match(ERROR_MARKER)
 
-  const source = raw.replace(ID_MARKER, '').replace(ERROR_MARKER, '').trim()
+  // Strip markers first, then any code fence the model opened around the
+  // document — otherwise a fence lands in the editor and breaks the compile.
+  const source = stripCodeFences(raw.replace(ID_MARKER, '').replace(ERROR_MARKER, ''))
 
   return {
     source,

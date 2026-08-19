@@ -2,7 +2,10 @@ import 'server-only'
 
 import Anthropic from '@anthropic-ai/sdk'
 
+import { stripCodeFences } from './latex-client'
 import { SYSTEM_PROMPTS, type GenerationMode } from './prompts'
+
+export { stripCodeFences }
 
 // Haiku 4.5. Cheapest and fastest of the current models, which suits a user
 // watching a stream. Note it does NOT accept `output_config.effort` — that
@@ -98,13 +101,6 @@ ${templateSource ?? ''}
   ].join('\n')
 }
 
-/** Strip the ```latex fences a model occasionally wraps its output in. */
-export function stripCodeFences(text: string): string {
-  return text
-    .replace(/^\s*```(?:latex|tex)?\s*\n?/i, '')
-    .replace(/\n?\s*```\s*$/i, '')
-    .trim()
-}
 
 /**
  * Stream a generated LaTeX resume as plain text chunks.
