@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 
 import { AgentSnippet } from '@/components/onboarding/agent-snippet'
+import { Appearance } from '@/components/settings/appearance'
 import { DeleteAccount } from '@/components/settings/delete-account'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,6 +31,16 @@ export default async function SettingsPage() {
         <h1 className="text-display-sm">Settings</h1>
         <p className="mt-3 text-sm text-muted-foreground">Account, agents, and data.</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Appearance</CardTitle>
+          <CardDescription>Cadence opens in light mode by default.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Appearance />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

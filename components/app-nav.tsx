@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Settings, User as UserIcon } from 'lucide-react'
 
 import { SignOutItem } from '@/components/auth/sign-out-item'
-import { ThemeToggle } from '@/components/theme-toggle'
+import { HelpDialog } from '@/components/help-dialog'
 import { Wordmark } from '@/components/wordmark'
 import {
   DropdownMenu,
@@ -50,7 +50,7 @@ export function AppNav({ user }: { user: NavUser }) {
         <Wordmark href="/dashboard" />
 
         <div className="flex items-center gap-1">
-          <ThemeToggle />
+          <HelpDialog />
 
           <DropdownMenu>
             <DropdownMenuTrigger className="ml-1 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-card transition-colors hover:border-foreground/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
