@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import {
   ArrowLeft,
@@ -89,7 +90,11 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
   // preview on screen is out of date.
   const [stale, setStale] = useState(false)
 
+  const router = useRouter()
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
+  // Source typed but not yet persisted. Non-null means there is work to flush
+  // if the editor is torn down before the debounce fires.
+  const pendingRef = useRef<string | null>(null)
   // Guards against an earlier, slower compile overwriting a newer result.
   const compileSeq = useRef(0)
   const pdfUrlRef = useRef<string | null>(null)
@@ -168,13 +173,45 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ latexSource: nextSource }),
         })
-        setSaveState(response.ok ? 'saved' : 'error')
+
+        if (!response.ok) {
+          setSaveState('error')
+          return
+        }
+
+        pendingRef.current = null
+        setSaveState('saved')
+
+        // Invalidate the client Router Cache. `dynamic = 'force-dynamic'` only
+        // governs the server: without this, navigating away and back within the
+        // cache window replays the pre-edit payload, so the editor would reopen
+        // on stale source and compile it.
+        router.refresh()
       } catch {
         setSaveState('error')
       }
     },
-    [resume.id],
+    [resume.id, router],
   )
+
+  /**
+   * Persist immediately, surviving teardown.
+   *
+   * `keepalive` lets the request outlive the page, which is what makes an edit
+   * typed a moment before closing the tab or clicking away actually stick.
+   */
+  const flushPendingSave = useCallback(() => {
+    const pending = pendingRef.current
+    if (pending === null) return
+
+    pendingRef.current = null
+    void fetch(`/api/resumes/${resume.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ latexSource: pending }),
+      keepalive: true,
+    }).catch(() => {})
+  }, [resume.id])
 
   // First paint: compile whatever is stored so the preview is never blank.
   useEffect(() => {
@@ -195,12 +232,31 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
     [save],
   )
 
-  useEffect(() => () => clearTimeout(saveTimer.current), [])
+  // Never let a pending edit die with the component. Covers all three exits:
+  // client-side navigation (cleanup), tab close or reload (pagehide), and
+  // switching apps on mobile, where pagehide may not fire (visibilitychange).
+  useEffect(() => {
+    const onPageHide = () => flushPendingSave()
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushPendingSave()
+    }
+
+    window.addEventListener('pagehide', onPageHide)
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      document.removeEventListener('visibilitychange', onVisibility)
+      clearTimeout(saveTimer.current)
+      flushPendingSave()
+    }
+  }, [flushPendingSave])
 
   function onSourceChange(next: string) {
     setSource(next)
     setSaveState('dirty')
     setStale(true)
+    pendingRef.current = next
     scheduleSave(next)
   }
 
@@ -292,6 +348,7 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
 
       setSource(result.source)
       sourceRef.current = result.source
+      pendingRef.current = null
       setSaveState('saved')
       await compile()
       setStale(false)
