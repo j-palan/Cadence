@@ -1,31 +1,19 @@
-import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
-
-import { auth } from '@/auth'
 import { AppNav } from '@/components/app-nav'
-import { PATHNAME_HEADER } from '@/middleware'
+import { requireUser } from '@/lib/auth-guards'
 
 /**
- * The authorization boundary for every signed-in page.
+ * Shell for signed-in pages.
  *
- * `await auth()` hits the database, so this is a real check — unlike the
- * middleware, which only looks for a cookie.
+ * This establishes that a session exists, but it is deliberately NOT where the
+ * onboarding gate lives — see the note in lib/auth-guards.ts. Each page calls
+ * `requireOnboardedUser()` itself.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth()
-
-  if (!session?.user) redirect('/login')
-
-  const pathname = headers().get(PATHNAME_HEADER) ?? ''
-
-  // First login lands in the wizard and stays there until it is finished.
-  if (!session.user.onboarded && pathname !== '/onboarding') {
-    redirect('/onboarding')
-  }
+  const user = await requireUser()
 
   return (
     <div className="flex min-h-screen flex-col">
-      <AppNav user={session.user} />
+      <AppNav user={user} />
       <div className="flex-1">{children}</div>
     </div>
   )

@@ -3,10 +3,13 @@ import type { Metadata } from 'next'
 import { ArrowLeft } from 'lucide-react'
 
 import { ImportForm } from '@/components/resume/import-form'
+import { requireOnboardedUser } from '@/lib/auth-guards'
 
 export const metadata: Metadata = { title: 'New resume' }
 
-export default function NewResumePage() {
+export default async function NewResumePage() {
+  await requireOnboardedUser()
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
       <Link

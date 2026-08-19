@@ -1,21 +1,19 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { Plus } from 'lucide-react'
 
-import { auth } from '@/auth'
 import { EmptyState } from '@/components/dashboard/empty-state'
 import { ResumeCard } from '@/components/dashboard/resume-card'
 import { Button } from '@/components/ui/button'
+import { requireOnboardedUser } from '@/lib/auth-guards'
 import { listResumes } from '@/lib/db/queries'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
 export default async function DashboardPage() {
-  const session = await auth()
-  if (!session?.user) redirect('/login')
+  const user = await requireOnboardedUser()
 
-  const resumes = await listResumes(session.user.id)
+  const resumes = await listResumes(user.id)
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
