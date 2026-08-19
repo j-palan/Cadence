@@ -2,9 +2,12 @@ import 'server-only'
 
 import Anthropic from '@anthropic-ai/sdk'
 
-// The plan pins Sonnet 5 for generation: resume writing is a well-specified
-// transformation, and the price/latency suits a user watching a stream.
-export const GENERATION_MODEL = 'claude-sonnet-5'
+import { SYSTEM_PROMPTS, type GenerationMode } from './prompts'
+
+// Haiku 4.5. Cheapest and fastest of the current models, which suits a user
+// watching a stream. Note it does NOT accept `output_config.effort` — that
+// parameter is rejected on this model, so no effort is sent below.
+export const GENERATION_MODEL = 'claude-haiku-4-5'
 
 // Streaming, so the HTTP timeout that constrains non-streaming requests does
 // not apply. A long log can produce a long document; leave room.
@@ -13,18 +16,8 @@ const MAX_TOKENS = 32_000
 // Guard rails on input size so one enormous paste cannot run up a bill.
 export const MAX_LOG_CHARS = 120_000
 export const MAX_EXISTING_SOURCE_CHARS = 120_000
+export const MAX_JOB_DESCRIPTION_CHARS = 20_000
 
-const SYSTEM_PROMPT = `You are an expert technical resume writer who works directly in LaTeX. You write concise, impact-first bullet points in past tense. Use strong action verbs. Quantify achievements where the log provides data — never invent numbers, employers, dates, degrees, or technologies that are absent from the log.
-
-You are given a complete, working LaTeX resume document filled with example content. Replace the example content with content drawn from the log, and change nothing else:
-
-- Keep the preamble exactly as given: every \\documentclass, \\usepackage, \\newcommand, \\titleformat, and margin adjustment stays byte-for-byte identical.
-- Build entries only with the document's own macros (\\resumeSubheading, \\resumeProjectHeading, \\resumeItem, \\resumeItemListStart/End, \\resumeSubHeadingListStart/End). Do not invent new macros or load new packages.
-- Repeat or delete entries to match the log. Delete a whole \\section if the log has nothing for it — never leave example content behind.
-- The log rarely mentions education or contact details. Keep those sections structurally intact with clearly placeholder values a user can obviously fill in, rather than inventing a school or a phone number.
-- Escape LaTeX special characters in prose: & # % $ _ { } become \\& \\# \\% \\$ \\_ \\{ \\}. Write C++ as C\\texttt{++} or C/C++ plainly, and use -- for date ranges.
-
-Output ONLY the complete LaTeX document, starting at \\documentclass and ending at \\end{document}. No markdown fences, no commentary before or after. The output must compile with pdflatex on the first try.`
 
 let client: Anthropic | null = null
 
@@ -44,37 +37,65 @@ export class MissingApiKeyError extends Error {
 }
 
 export interface GenerateResumeInput {
-  log: string
-  templateSource: string
+  mode: GenerationMode
+  /** Required for `create` and `update`. */
+  log?: string
+  /** The template, for `create`. */
+  templateSource?: string
+  /** The saved resume — the source of truth for `update` and `tailor`. */
   existingSource?: string | null
+  /** Required for `tailor`. */
+  jobDescription?: string
 }
 
-function buildUserMessage({
-  log,
-  templateSource,
-  existingSource,
-}: GenerateResumeInput): string {
-  const parts = [
-    "Here is a developer's work log:",
-    `<log>\n${log.slice(0, MAX_LOG_CHARS)}\n</log>`,
-    '',
-    'Here is the LaTeX resume document to fill:',
-    `<template>\n${templateSource}\n</template>`,
-  ]
+function buildUserMessage(input: GenerateResumeInput): string {
+  const { mode, log, templateSource, existingSource, jobDescription } = input
 
-  if (existingSource && existingSource.trim().length > 0) {
-    parts.push(
+  if (mode === 'tailor') {
+    return [
+      'Here is the job description to tailor toward:',
+      `<job_description>
+${(jobDescription ?? '').slice(0, MAX_JOB_DESCRIPTION_CHARS)}
+</job_description>`,
       '',
-      'Here is their current resume. Merge new accomplishments in; do not remove existing content unless it is duplicated by the log. Preserve their real name, contact details, and education exactly as written:',
-      `<current_resume>\n${existingSource.slice(0, MAX_EXISTING_SOURCE_CHARS)}\n</current_resume>`,
+      'Here is the resume, which is the source of truth for what this person has actually done:',
+      `<resume>
+${(existingSource ?? '').slice(0, MAX_EXISTING_SOURCE_CHARS)}
+</resume>`,
       '',
-      'Return the complete updated LaTeX document.',
-    )
-  } else {
-    parts.push('', 'Return the complete LaTeX document.')
+      'Return the complete tailored LaTeX document.',
+    ].join('\n')
   }
 
-  return parts.join('\n')
+  if (mode === 'update') {
+    return [
+      "Here is the developer's work log:",
+      `<log>
+${(log ?? '').slice(0, MAX_LOG_CHARS)}
+</log>`,
+      '',
+      'Here is their current resume, which is the source of truth. Merge in anything the log adds and leave everything else exactly as it is:',
+      `<resume>
+${(existingSource ?? '').slice(0, MAX_EXISTING_SOURCE_CHARS)}
+</resume>`,
+      '',
+      'Return the complete updated LaTeX document.',
+    ].join('\n')
+  }
+
+  return [
+    "Here is a developer's work log:",
+    `<log>
+${(log ?? '').slice(0, MAX_LOG_CHARS)}
+</log>`,
+    '',
+    'Here is the LaTeX resume template to fill:',
+    `<template>
+${templateSource ?? ''}
+</template>`,
+    '',
+    'Return the complete LaTeX document.',
+  ].join('\n')
 }
 
 /** Strip the ```latex fences a model occasionally wraps its output in. */
@@ -100,10 +121,9 @@ export async function* streamResumeSource(
   const stream = anthropic.messages.stream({
     model: GENERATION_MODEL,
     max_tokens: MAX_TOKENS,
-    // Resume writing does not need deep deliberation, and the user is watching
-    // the stream. Adaptive thinking stays on (the default on Sonnet 5).
-    output_config: { effort: 'medium' },
-    system: SYSTEM_PROMPT,
+    // No `output_config.effort` and no `thinking`: effort is rejected on Haiku
+    // 4.5, and this is a well-specified transformation that does not need it.
+    system: SYSTEM_PROMPTS[input.mode],
     messages: [{ role: 'user', content: buildUserMessage(input) }],
   })
 
