@@ -1,18 +1,16 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { ArrowLeft, ArrowRight, Loader2, PartyPopper } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
 
 import { finishOnboarding } from '@/app/(onboard)/onboarding/actions'
 import { AgentSnippet } from '@/components/onboarding/agent-snippet'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AGENTS, LOG_PATH } from '@/lib/agents'
 import { cn } from '@/lib/utils'
 
-const STEPS = ['Pick your agents', 'Add the instruction', 'Done'] as const
+const STEPS = ['Agents', 'Instruction', 'Done'] as const
 
 export function OnboardingWizard({ initialAgents }: { initialAgents: string[] }) {
   const [step, setStep] = useState(0)
@@ -20,15 +18,12 @@ export function OnboardingWizard({ initialAgents }: { initialAgents: string[] })
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  const chosen = useMemo(
-    () => AGENTS.filter((agent) => selected.includes(agent.id)),
-    [selected],
-  )
+  const chosen = useMemo(() => AGENTS.filter((a) => selected.includes(a.id)), [selected])
 
   function toggle(id: string) {
     setError(null)
     setSelected((current) =>
-      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+      current.includes(id) ? current.filter((v) => v !== id) : [...current, id],
     )
   }
 
@@ -37,7 +32,7 @@ export function OnboardingWizard({ initialAgents }: { initialAgents: string[] })
       setError('Pick at least one agent.')
       return
     }
-    setStep((current) => Math.min(current + 1, STEPS.length - 1))
+    setStep((c) => Math.min(c + 1, STEPS.length - 1))
   }
 
   function finish() {
@@ -48,38 +43,35 @@ export function OnboardingWizard({ initialAgents }: { initialAgents: string[] })
   }
 
   return (
-    <div className="space-y-8">
-      <ol className="flex flex-wrap items-center gap-2 text-xs">
+    <div className="space-y-12">
+      {/* Progress: a thin rule per step, not a numbered breadcrumb. */}
+      <div className="flex items-center gap-2">
         {STEPS.map((label, index) => (
-          <li key={label} className="flex items-center gap-2">
-            <span
+          <div key={label} className="flex-1">
+            <div
               className={cn(
-                'flex h-5 w-5 items-center justify-center rounded-sm border font-mono text-[11px]',
-                index === step
-                  ? 'border-primary bg-primary/15 text-primary'
-                  : index < step
-                    ? 'border-success/50 bg-success/15 text-success'
-                    : 'border-border text-muted-foreground',
+                'h-0.5 rounded-full transition-colors',
+                index <= step ? 'bg-success' : 'bg-border',
+              )}
+            />
+            <p
+              className={cn(
+                'mt-2 text-xs transition-colors',
+                index === step ? 'font-medium text-foreground' : 'text-muted-foreground',
               )}
             >
-              {index + 1}
-            </span>
-            <span className={index === step ? 'text-foreground' : 'text-muted-foreground'}>
               {label}
-            </span>
-            {index < STEPS.length - 1 ? (
-              <span className="mx-1 h-px w-6 bg-border" aria-hidden="true" />
-            ) : null}
-          </li>
+            </p>
+          </div>
         ))}
-      </ol>
+      </div>
 
       {step === 0 ? (
-        <section className="space-y-4">
-          <div className="space-y-1">
-            <h2 className="text-lg font-medium tracking-tight">Which agents do you code with?</h2>
-            <p className="text-sm text-muted-foreground">
-              Pick every one you use. You will get a snippet for each.
+        <section className="animate-fade-up space-y-6">
+          <div className="space-y-2">
+            <h1 className="text-display-sm">Which agents do you code with?</h1>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              You&apos;ll get the exact snippet for each one you pick.
             </p>
           </div>
 
@@ -87,25 +79,36 @@ export function OnboardingWizard({ initialAgents }: { initialAgents: string[] })
             {AGENTS.map((agent) => {
               const checked = selected.includes(agent.id)
               return (
-                <label
+                <button
                   key={agent.id}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={checked}
+                  onClick={() => toggle(agent.id)}
                   className={cn(
-                    'flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors',
+                    'flex items-center justify-between gap-3 rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                     checked
-                      ? 'border-primary/60 bg-primary/5'
-                      : 'border-border hover:border-muted-foreground/40',
+                      ? 'border-success bg-success/[0.06]'
+                      : 'border-border bg-card hover:border-foreground/20',
                   )}
                 >
-                  <Checkbox
-                    checked={checked}
-                    onCheckedChange={() => toggle(agent.id)}
-                    className="mt-0.5"
-                  />
-                  <span className="space-y-1">
+                  <span className="min-w-0">
                     <span className="block text-sm font-medium">{agent.name}</span>
-                    <code className="block text-xs text-muted-foreground">{agent.configPath}</code>
+                    <span className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground">
+                      {agent.configPath}
+                    </span>
                   </span>
-                </label>
+                  <span
+                    className={cn(
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors',
+                      checked
+                        ? 'border-success bg-success text-success-foreground'
+                        : 'border-input',
+                    )}
+                  >
+                    {checked ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+                  </span>
+                </button>
               )
             })}
           </div>
@@ -113,12 +116,12 @@ export function OnboardingWizard({ initialAgents }: { initialAgents: string[] })
       ) : null}
 
       {step === 1 ? (
-        <section className="space-y-4">
-          <div className="space-y-1">
-            <h2 className="text-lg font-medium tracking-tight">Add the logging instruction</h2>
-            <p className="text-sm text-muted-foreground">
+        <section className="animate-fade-up space-y-6">
+          <div className="space-y-2">
+            <h1 className="text-display-sm">Add the instruction</h1>
+            <p className="text-sm leading-relaxed text-muted-foreground">
               Paste this into each agent&apos;s config. From then on it appends your wins to{' '}
-              <code className="text-primary">{LOG_PATH}</code> as they happen.
+              <code className="font-mono text-xs text-foreground">{LOG_PATH}</code>.
             </p>
           </div>
 
@@ -140,29 +143,26 @@ export function OnboardingWizard({ initialAgents }: { initialAgents: string[] })
       ) : null}
 
       {step === 2 ? (
-        <section className="space-y-4">
-          <Badge variant="success">
-            <PartyPopper className="h-3 w-3" />
-            Set up
-          </Badge>
-          <div className="space-y-2">
-            <h2 className="text-lg font-medium tracking-tight">Go code something great.</h2>
-            <p className="text-sm text-muted-foreground">
-              Come back in a week. Your agents will have been writing to{' '}
-              <code className="text-primary">{LOG_PATH}</code> the whole time — import it and
-              Cadence turns it into a resume.
-            </p>
-          </div>
+        <section className="animate-fade-up space-y-4">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-success/12 text-success">
+            <Check className="h-4 w-4" strokeWidth={3} />
+          </span>
+          <h1 className="text-display-sm">Go code something great.</h1>
+          <p className="max-w-readable text-sm leading-relaxed text-muted-foreground">
+            Come back in a week. Your agents will have been writing to{' '}
+            <code className="font-mono text-xs text-foreground">{LOG_PATH}</code> the whole time —
+            import it and Cadence turns it into a resume.
+          </p>
         </section>
       ) : null}
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <div className="flex items-center justify-between border-t border-border pt-4">
+      <div className="flex items-center justify-between border-t border-border pt-6">
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setStep((current) => Math.max(current - 1, 0))}
+          onClick={() => setStep((c) => Math.max(c - 1, 0))}
           disabled={step === 0 || pending}
         >
           <ArrowLeft />
@@ -171,13 +171,14 @@ export function OnboardingWizard({ initialAgents }: { initialAgents: string[] })
 
         {step < STEPS.length - 1 ? (
           <Button size="sm" onClick={next}>
-            Next
+            Continue
             <ArrowRight />
           </Button>
         ) : (
           <Button size="sm" onClick={finish} disabled={pending}>
             {pending ? <Loader2 className="animate-spin" /> : null}
             Go to dashboard
+            {pending ? null : <ArrowRight />}
           </Button>
         )}
       </div>

@@ -48,15 +48,18 @@ const config: Config = {
           foreground: 'hsl(var(--popover-foreground))',
         },
       },
-      // Sharp corners: 4px is the ceiling, per the design direction.
       borderRadius: {
-        lg: '4px',
-        md: '3px',
-        sm: '2px',
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+        xl: 'calc(var(--radius) + 4px)',
       },
       fontFamily: {
-        sans: ['var(--font-sans)'],
-        mono: ['var(--font-mono)'],
+        sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
+      },
+      maxWidth: {
+        readable: '68ch',
       },
       keyframes: {
         'accordion-down': {
@@ -72,15 +75,20 @@ const config: Config = {
           '20%, 50%': { opacity: '0' },
         },
         'fade-up': {
-          from: { opacity: '0', transform: 'translateY(4px)' },
+          from: { opacity: '0', transform: 'translateY(8px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-6px)' },
         },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'caret-blink': 'caret-blink 1s step-end infinite',
-        'fade-up': 'fade-up 0.25s ease-out both',
+        'fade-up': 'fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both',
+        float: 'float 6s ease-in-out infinite',
       },
     },
   },

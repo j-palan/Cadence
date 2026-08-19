@@ -6,6 +6,8 @@ import { ArrowLeft } from 'lucide-react'
 import { auth, googleConfigured } from '@/auth'
 import { DevSignIn } from '@/components/auth/dev-sign-in'
 import { SignInButton } from '@/components/auth/sign-in-button'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { Wordmark } from '@/components/wordmark'
 
 export const metadata: Metadata = { title: 'Sign in' }
 
@@ -24,7 +26,7 @@ export default async function LoginPage({
   searchParams: { next?: string; error?: string }
 }) {
   const session = await auth()
-  // Only allow same-origin paths through, so ?next= cannot become an open redirect.
+  // Only same-origin paths, so ?next= cannot become an open redirect.
   const next = searchParams.next?.startsWith('/') ? searchParams.next : '/dashboard'
 
   if (session?.user) redirect(next)
@@ -34,61 +36,61 @@ export default async function LoginPage({
     : null
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-6 py-16">
-      <div className="w-full max-w-sm space-y-8">
-        <div className="space-y-2 text-center">
-          <Link href="/" className="inline-flex font-mono text-sm font-medium tracking-tight">
-            cadence
-          </Link>
-          <h1 className="text-xl font-medium tracking-tight">Sign in</h1>
-          <p className="text-sm text-muted-foreground">
+    <div className="flex min-h-dvh flex-col">
+      <header className="flex h-16 items-center justify-between px-6">
+        <Wordmark />
+        <ThemeToggle />
+      </header>
+
+      <main className="flex flex-1 items-center justify-center px-6 pb-24">
+        <div className="w-full max-w-sm">
+          <h1 className="text-display-sm">Sign in</h1>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             Google only. No password to set, nothing to reset.
           </p>
-        </div>
 
-        {error ? (
-          <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
-
-        <div className="space-y-4">
-          {googleConfigured ? (
-            <SignInButton next={next} className="w-full" size="lg" />
-          ) : (
-            <p className="rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
-              Google sign-in is not configured. Set{' '}
-              <code className="text-xs">AUTH_GOOGLE_ID</code> and{' '}
-              <code className="text-xs">AUTH_GOOGLE_SECRET</code> in{' '}
-              <code className="text-xs">.env.local</code>.
+          {error ? (
+            <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
+              {error}
             </p>
-          )}
+          ) : null}
 
-          {devLoginEnabled ? <DevSignIn next={next} /> : null}
-        </div>
+          <div className="mt-8 space-y-4">
+            {googleConfigured ? (
+              <SignInButton next={next} className="w-full" size="lg" />
+            ) : (
+              <p className="rounded-lg border border-border bg-card px-3.5 py-3 text-sm leading-relaxed text-muted-foreground">
+                Google sign-in is not configured. Set{' '}
+                <code className="font-mono text-xs text-foreground">AUTH_GOOGLE_ID</code> and{' '}
+                <code className="font-mono text-xs text-foreground">AUTH_GOOGLE_SECRET</code> in{' '}
+                <code className="font-mono text-xs text-foreground">.env.local</code>.
+              </p>
+            )}
 
-        <div className="text-center">
+            {devLoginEnabled ? <DevSignIn next={next} /> : null}
+          </div>
+
+          <p className="mt-10 text-xs leading-relaxed text-muted-foreground">
+            By signing in you agree to the{' '}
+            <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
+              terms
+            </Link>{' '}
+            and{' '}
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+              privacy policy
+            </Link>
+            .
+          </p>
+
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            className="mt-8 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-3 w-3" />
             Back to home
           </Link>
         </div>
-
-        <p className="text-center text-xs text-muted-foreground">
-          By signing in you agree to the{' '}
-          <Link href="/terms" className="underline hover:text-foreground">
-            terms
-          </Link>{' '}
-          and{' '}
-          <Link href="/privacy" className="underline hover:text-foreground">
-            privacy policy
-          </Link>
-          .
-        </p>
-      </div>
-    </main>
+      </main>
+    </div>
   )
 }

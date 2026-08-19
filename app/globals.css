@@ -3,77 +3,86 @@
 @tailwind utilities;
 
 @layer base {
-  /* Light palette. Ground #F6F8FA, text #1F2328, accent #58A6FF. */
+  /*
+   * White, black, green.
+   *
+   * The ground is a warm off-white and surfaces are pure white — that
+   * separation is what lets cards read without shadows. Green is reserved for
+   * one thing: the accent. It marks the primary action and "this worked", and
+   * appears nowhere else, so it never competes with itself.
+   */
   :root {
-    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-      'Helvetica Neue', Arial, sans-serif;
-    --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas,
-      'Liberation Mono', monospace;
-
-    --background: 210 29% 97%;
-    --foreground: 213 13% 14%;
+    --background: 40 12% 95%;
+    --foreground: 0 0% 4%;
 
     --card: 0 0% 100%;
-    --card-foreground: 213 13% 14%;
+    --card-foreground: 0 0% 4%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 213 13% 14%;
+    --popover-foreground: 0 0% 4%;
 
-    --primary: 212 100% 45%;
+    /* Primary is black — the CTA style from the reference. */
+    --primary: 0 0% 7%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 24% 93%;
-    --secondary-foreground: 213 13% 14%;
+    --secondary: 40 8% 91%;
+    --secondary-foreground: 0 0% 12%;
 
-    --muted: 210 24% 93%;
-    --muted-foreground: 212 11% 42%;
+    --muted: 40 8% 91%;
+    --muted-foreground: 30 4% 40%;
 
-    --accent: 210 24% 93%;
-    --accent-foreground: 213 13% 14%;
+    --accent: 40 8% 91%;
+    --accent-foreground: 0 0% 7%;
 
-    --success: 128 49% 38%;
+    /* The one accent colour. Deep enough to pass AA as text on both the
+       white card (5.5:1) and the off-white ground (4.9:1), and to carry white
+       text when it fills a button. A brighter green fails all three. */
+    --success: 145 70% 28%;
     --success-foreground: 0 0% 100%;
 
-    --destructive: 0 66% 47%;
+    --destructive: 0 72% 44%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 18% 84%;
-    --input: 210 18% 84%;
-    --ring: 212 100% 45%;
+    --border: 36 8% 87%;
+    --input: 36 8% 84%;
+    --ring: 145 70% 28%;
+
+    --radius: 0.5rem;
   }
 
-  /* Dark palette — the default the product is designed for. */
   .dark {
-    --background: 216 28% 7%;
-    --foreground: 208 35% 93%;
+    --background: 0 0% 6%;
+    --foreground: 40 10% 94%;
 
-    --card: 215 21% 11%;
-    --card-foreground: 208 35% 93%;
+    --card: 0 0% 9%;
+    --card-foreground: 40 10% 94%;
 
-    --popover: 215 21% 11%;
-    --popover-foreground: 208 35% 93%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 40 10% 94%;
 
-    --primary: 212 100% 67%;
-    --primary-foreground: 216 28% 7%;
+    /* Inverted: on dark, the high-contrast CTA is white. */
+    --primary: 40 10% 96%;
+    --primary-foreground: 0 0% 7%;
 
-    --secondary: 212 12% 17%;
-    --secondary-foreground: 208 35% 93%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 40 10% 94%;
 
-    --muted: 212 12% 17%;
-    --muted-foreground: 212 12% 58%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 35 5% 62%;
 
-    --accent: 212 12% 21%;
-    --accent-foreground: 208 35% 93%;
+    --accent: 0 0% 18%;
+    --accent-foreground: 40 10% 94%;
 
-    --success: 128 49% 49%;
-    --success-foreground: 216 28% 7%;
+    /* Lifted and desaturated for dark surfaces, not the same green. */
+    --success: 142 60% 52%;
+    --success-foreground: 0 0% 7%;
 
-    --destructive: 0 72% 58%;
-    --destructive-foreground: 216 28% 7%;
+    --destructive: 0 68% 58%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 212 12% 21%;
-    --input: 212 12% 21%;
-    --ring: 212 100% 67%;
+    --border: 0 0% 18%;
+    --input: 0 0% 22%;
+    --ring: 142 60% 52%;
   }
 }
 
@@ -84,34 +93,42 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  code,
-  kbd,
-  pre,
-  samp {
-    font-family: var(--font-mono);
+  /* Tight tracking on display type, following the reference. */
+  h1,
+  h2 {
+    letter-spacing: -0.03em;
+  }
+
+  ::selection {
+    background: hsl(var(--success) / 0.25);
   }
 }
 
 @layer utilities {
-  /* Faint grid used behind the landing hero. */
-  .bg-grid {
-    background-image: linear-gradient(
-        to right,
-        hsl(var(--border) / 0.5) 1px,
-        transparent 1px
-      ),
-      linear-gradient(to bottom, hsl(var(--border) / 0.5) 1px, transparent 1px);
-    background-size: 48px 48px;
+  /* Oversized hero type that stays readable at 375px. */
+  .text-display {
+    font-size: clamp(2.25rem, 6.5vw, 4.25rem);
+    line-height: 1.02;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+  }
+
+  .text-display-sm {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.03em;
   }
 }
 
-/* CodeMirror needs an explicit height to fill its pane. */
+/* --- CodeMirror --- */
 .cm-editor {
   height: 100%;
+  background: transparent;
 }
 
 .cm-editor.cm-focused {
@@ -119,7 +136,22 @@
 }
 
 .cm-scroller {
-  font-family: var(--font-mono) !important;
+  font-family: var(--font-mono), ui-monospace, monospace !important;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.65;
+}
+
+.cm-gutters {
+  border-right: 1px solid hsl(var(--border)) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

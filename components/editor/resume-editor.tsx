@@ -274,8 +274,8 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
   const busy = compileState === 'compiling' || regenerating
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-background px-4 py-2.5">
         <Button asChild variant="ghost" size="icon" className="h-8 w-8">
           <Link href="/dashboard" aria-label="Back to dashboard">
             <ArrowLeft />
@@ -288,10 +288,10 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
           onBlur={(event) => void renameResume(event.target.value)}
           maxLength={120}
           aria-label="Resume name"
-          className="h-8 w-48 border-transparent bg-transparent px-2 font-medium hover:border-border focus-visible:border-border"
+          className="h-9 w-48 border-transparent bg-transparent px-2 font-semibold hover:border-border focus-visible:border-border"
         />
 
-        <Badge variant="outline" className="hidden sm:inline-flex">
+        <Badge variant="muted" className="hidden sm:inline-flex">
           <FileText className="h-3 w-3" />
           {templateName(resume.template)}
         </Badge>
@@ -313,12 +313,12 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
             </Button>
           ) : null}
 
-          <Button variant="outline" size="sm" onClick={saveAndCompileNow} disabled={busy}>
+          <Button variant="success" size="sm" onClick={saveAndCompileNow} disabled={busy}>
             {compileState === 'compiling' ? <Loader2 className="animate-spin" /> : <Play />}
             Recompile
           </Button>
 
-          <Button size="sm" onClick={download} disabled={busy}>
+          <Button variant="outline" size="sm" onClick={download} disabled={busy}>
             <Download />
             <span className="hidden sm:inline">PDF</span>
           </Button>
@@ -332,7 +332,7 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
           </EditorBoundary>
         </Panel>
 
-        <Separator className="w-1.5 cursor-col-resize bg-border transition-colors hover:bg-primary/60 data-[state=dragging]:bg-primary" />
+        <Separator className="w-1 cursor-col-resize bg-border transition-colors hover:bg-success data-[state=dragging]:bg-success" />
 
         <Panel defaultSize="50%" minSize="25%" className="overflow-hidden">
           <PdfPane
@@ -346,13 +346,14 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
         </Panel>
       </Group>
 
-      <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-1.5 text-[11px] text-muted-foreground">
+      <div className="flex items-center justify-between gap-3 border-t border-border bg-background px-4 py-2 text-[11px] text-muted-foreground">
         <span className="font-mono">
           {source.split('\n').length.toLocaleString()} lines ·{' '}
           {source.length.toLocaleString()} chars
         </span>
         <span className="hidden sm:inline">
-          <kbd className="rounded-sm border border-border px-1">⌘S</kbd> saves and recompiles
+          <kbd className="rounded border border-border bg-card px-1.5 py-0.5 font-mono">⌘S</kbd>{' '}
+          saves and recompiles
         </span>
         <span className="font-mono">
           {compileState === 'ok' && engine ? `compiled with ${engine}` : null}
@@ -404,7 +405,7 @@ function SaveIndicator({ state }: { state: SaveState }) {
 
   return (
     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <Check className="h-3 w-3 text-success" />
+      <Check className="h-3 w-3 text-success" strokeWidth={3} />
       Saved
     </span>
   )

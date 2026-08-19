@@ -15,7 +15,7 @@ export default async function OnboardingPage() {
   if (user.onboarded) redirect('/dashboard')
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
+    <main className="mx-auto max-w-2xl px-6 py-14">
       <OnboardingWizard initialAgents={user.agents ?? []} />
     </main>
   )

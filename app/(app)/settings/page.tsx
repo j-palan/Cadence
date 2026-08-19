@@ -25,10 +25,10 @@ export default async function SettingsPage() {
   const chosen = AGENTS.filter((agent) => user.agents.includes(agent.id))
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 px-6 py-10">
-      <div className="space-y-1">
-        <h1 className="text-xl font-medium tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Account, agents, and data.</p>
+    <main className="mx-auto max-w-2xl space-y-6 px-6 py-14">
+      <div>
+        <h1 className="text-display-sm">Settings</h1>
+        <p className="mt-3 text-sm text-muted-foreground">Account, agents, and data.</p>
       </div>
 
       <Card>
@@ -81,11 +81,11 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-destructive/40">
+      <Card className="border-destructive/30">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Danger zone
-            <Badge variant="outline" className="border-destructive/40 text-destructive">
+            <Badge variant="outline" className="border-destructive/30 text-destructive">
               permanent
             </Badge>
           </CardTitle>
