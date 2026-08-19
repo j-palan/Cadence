@@ -1,0 +1,150 @@
+# Cadence dev-server control.
+#
+#   task start    start the dev server in the background
+#   task stop     stop it
+#   task status   is it up?
+#   task logs     follow its output
+#
+# Everything targets one port and one pidfile, so stopping never reaches past
+# this project — `pkill -f "next dev"` would kill every Next server on the
+# machine, including ones you started by hand.
+version: '3'
+
+# Show task output, not the script being run.
+silent: true
+
+vars:
+  PORT: '{{.PORT | default "3003"}}'
+  RUNDIR: .cadence
+  PIDFILE: .cadence/dev.pid
+  LOGFILE: .cadence/dev.log
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  start:
+    desc: Start the dev server in the background (PORT=3003)
+    status:
+      # Treat "already listening" as success so `task start` is idempotent.
+      - lsof -ti:{{.PORT}} >/dev/null 2>&1
+    cmds:
+      - mkdir -p {{.RUNDIR}}
+      - |
+        echo "Starting Cadence on port {{.PORT}}…"
+        nohup npm run dev -- -p {{.PORT}} > {{.LOGFILE}} 2>&1 &
+        echo $! > {{.PIDFILE}}
+      - |
+        # Wait for readiness rather than guessing, and surface a startup crash.
+        for i in $(seq 1 60); do
+          if grep -qE "Ready in|✓ Ready" {{.LOGFILE}} 2>/dev/null; then
+            echo "  ready → http://localhost:{{.PORT}}"
+            exit 0
+          fi
+          if grep -qiE "^error|EADDRINUSE|Error:" {{.LOGFILE}} 2>/dev/null; then
+            echo "  failed to start:" >&2
+            tail -20 {{.LOGFILE}} >&2
+            exit 1
+          fi
+          sleep 0.5
+        done
+        echo "  still not ready after 30s — check: task logs" >&2
+        exit 1
+
+  stop:
+    desc: Stop the dev server
+    cmds:
+      - |
+        stopped=""
+
+        # The recorded npm pid, plus any children it spawned (next dev itself).
+        if [ -f {{.PIDFILE}} ]; then
+          pid=$(cat {{.PIDFILE}} 2>/dev/null || true)
+          if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            pkill -P "$pid" 2>/dev/null || true
+            kill "$pid" 2>/dev/null || true
+            stopped="pid $pid"
+          fi
+          rm -f {{.PIDFILE}}
+        fi
+
+        # Whatever is actually holding the port — covers a server started by
+        # hand with `npm run dev`, or a child that outlived its parent.
+        port_pids=$(lsof -ti:{{.PORT}} 2>/dev/null || true)
+        if [ -n "$port_pids" ]; then
+          echo "$port_pids" | xargs kill 2>/dev/null || true
+          sleep 1
+          # Anything still clinging on gets SIGKILL.
+          still=$(lsof -ti:{{.PORT}} 2>/dev/null || true)
+          [ -n "$still" ] && echo "$still" | xargs kill -9 2>/dev/null || true
+          stopped="${stopped:+$stopped, }port {{.PORT}}"
+        fi
+
+        if [ -n "$stopped" ]; then
+          echo "Stopped Cadence ($stopped)."
+        else
+          echo "Nothing running on port {{.PORT}}."
+        fi
+
+  restart:
+    desc: Restart the dev server
+    cmds:
+      - task: stop
+      - sleep 1
+      - task: start
+
+  status:
+    desc: Show whether the dev server is up
+    cmds:
+      - |
+        pids=$(lsof -ti:{{.PORT}} 2>/dev/null || true)
+        if [ -z "$pids" ]; then
+          echo "stopped — nothing listening on port {{.PORT}}"
+          exit 0
+        fi
+        code=$(curl -s -o /dev/null -m 5 -w '%{http_code}' http://localhost:{{.PORT}}/ || echo "no response")
+        echo "running  → http://localhost:{{.PORT}}  (HTTP $code)"
+        echo "pids     → $(echo $pids | tr '\n' ' ')"
+
+  logs:
+    desc: Follow the dev server log
+    cmds:
+      - tail -f {{.LOGFILE}}
+    interactive: true
+
+  setup:
+    desc: One-time local setup (deps, pdf worker, migrations, TeX cache)
+    cmds:
+      - npm install
+      - npm run pdf:worker
+      - npm run db:migrate
+      - npm run tex:warm
+      - echo "Setup complete. Run 'task start'."
+
+  check:
+    desc: Typecheck, lint, and build
+    cmds:
+      - npm run typecheck
+      - npm run lint
+      - npm run build
+
+  doctor:
+    desc: Check local prerequisites
+    cmds:
+      - |
+        ok() { printf "  \033[32m✓\033[0m %s\n" "$1"; }
+        no() { printf "  \033[31m✗\033[0m %s\n" "$1"; }
+        echo "Prerequisites:"
+        node -v >/dev/null 2>&1 && ok "node $(node -v)" || no "node not found"
+        command -v tectonic >/dev/null 2>&1 && ok "tectonic $(tectonic --version 2>/dev/null | awk '{print $2}')" \
+          || { command -v pdflatex >/dev/null 2>&1 && ok "pdflatex (tectonic preferred)" || no "no LaTeX engine — brew install tectonic"; }
+        [ -f public/pdf.worker.min.mjs ] && ok "pdf.js worker present" || no "pdf.js worker missing — npm run pdf:worker"
+        echo "Environment (.env.local):"
+        for v in AUTH_SECRET DATABASE_URL DATABASE_URL_UNPOOLED; do
+          grep -qE "^$v=.+" .env.local 2>/dev/null && ok "$v set" || no "$v missing (required)"
+        done
+        for v in ANTHROPIC_API_KEY AUTH_GOOGLE_ID AUTH_GOOGLE_SECRET; do
+          grep -qE "^$v=.+" .env.local 2>/dev/null && ok "$v set" || printf "  \033[33m–\033[0m %s\n" "$v not set (optional)"
+        done
