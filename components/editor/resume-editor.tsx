@@ -46,7 +46,6 @@ const CodePane = dynamic(
 )
 
 const AUTOSAVE_DELAY_MS = 1500
-const COMPILE_DELAY_MS = 2000
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'error'
 type CompileState = 'idle' | 'compiling' | 'ok' | 'failed' | 'unavailable'
@@ -75,9 +74,11 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
   const [logOpen, setLogOpen] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [engine, setEngine] = useState<string | null>(null)
+  // True when the source has changed since the last successful compile, so the
+  // preview on screen is out of date.
+  const [stale, setStale] = useState(false)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
-  const compileTimer = useRef<ReturnType<typeof setTimeout>>()
   // Guards against an earlier, slower compile overwriting a newer result.
   const compileSeq = useRef(0)
   const pdfUrlRef = useRef<string | null>(null)
@@ -122,6 +123,7 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
         setLog('')
         setEngine(response.headers.get('X-Cadence-Engine'))
         setCompileState('ok')
+        setStale(false)
         return
       }
 
@@ -168,37 +170,32 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
     void compile()
   }, [compile])
 
-  // Overleaf's rhythm: save shortly after typing stops, recompile shortly after
-  // that. Both timers reset on every keystroke.
-  const scheduleWork = useCallback(
+  /**
+   * Saving is automatic; compiling is not.
+   *
+   * Every compile spawns a TeX process, so it runs only when the user asks —
+   * the Recompile button or Cmd/Ctrl+S. Typing just marks the preview stale.
+   */
+  const scheduleSave = useCallback(
     (nextSource: string) => {
       clearTimeout(saveTimer.current)
-      clearTimeout(compileTimer.current)
-
       saveTimer.current = setTimeout(() => void save(nextSource), AUTOSAVE_DELAY_MS)
-      compileTimer.current = setTimeout(() => void compile(), COMPILE_DELAY_MS)
     },
-    [compile, save],
+    [save],
   )
 
-  useEffect(
-    () => () => {
-      clearTimeout(saveTimer.current)
-      clearTimeout(compileTimer.current)
-    },
-    [],
-  )
+  useEffect(() => () => clearTimeout(saveTimer.current), [])
 
   function onSourceChange(next: string) {
     setSource(next)
     setSaveState('dirty')
-    scheduleWork(next)
+    setStale(true)
+    scheduleSave(next)
   }
 
-  /** Cmd/Ctrl+S and the Recompile button: flush both timers immediately. */
+  /** Cmd/Ctrl+S and the Recompile button: save now, then compile. */
   const saveAndCompileNow = useCallback(() => {
     clearTimeout(saveTimer.current)
-    clearTimeout(compileTimer.current)
     void save(sourceRef.current)
     void compile()
   }, [compile, save])
@@ -264,6 +261,7 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
       setSaveState('saved')
       sourceRef.current = result.source
       await compile()
+      setStale(false)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Regeneration failed.')
     } finally {
@@ -313,12 +311,18 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
             </Button>
           ) : null}
 
-          <Button variant="success" size="sm" onClick={saveAndCompileNow} disabled={busy}>
+          <Button
+            variant={stale ? 'success' : 'outline'}
+            size="sm"
+            onClick={saveAndCompileNow}
+            disabled={busy}
+            title={stale ? 'The preview is out of date (⌘S)' : 'Recompile (⌘S)'}
+          >
             {compileState === 'compiling' ? <Loader2 className="animate-spin" /> : <Play />}
             Recompile
           </Button>
 
-          <Button variant="outline" size="sm" onClick={download} disabled={busy}>
+          <Button variant="secondary" size="sm" onClick={download} disabled={busy}>
             <Download />
             <span className="hidden sm:inline">PDF</span>
           </Button>
@@ -337,6 +341,7 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
         <Panel defaultSize="50%" minSize="25%" className="overflow-hidden">
           <PdfPane
             url={pdfUrl}
+            stale={stale}
             status={compileState}
             errors={errors}
             log={log}
@@ -353,7 +358,7 @@ export function ResumeEditor({ resume, hasLog }: ResumeEditorProps) {
         </span>
         <span className="hidden sm:inline">
           <kbd className="rounded border border-border bg-card px-1.5 py-0.5 font-mono">⌘S</kbd>{' '}
-          saves and recompiles
+          recompiles
         </span>
         <span className="font-mono">
           {compileState === 'ok' && engine ? `compiled with ${engine}` : null}
