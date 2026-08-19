@@ -125,6 +125,26 @@
   }
 }
 
+/* The wordmark's waveform traces itself on hover. dasharray exceeds the path
+   length so the offset animation fully reveals it. */
+.logo-trace {
+  stroke-dasharray: 90;
+  stroke-dashoffset: 0;
+}
+
+.group:hover .logo-trace {
+  animation: logo-trace 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes logo-trace {
+  from {
+    stroke-dashoffset: 90;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 /* --- CodeMirror --- */
 .cm-editor {
   height: 100%;

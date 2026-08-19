@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
  */
 export default function EditorLoading() {
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col">
+    <div className="flex h-[calc(100dvh-4rem-1px)] flex-col">
       <div className="flex items-center gap-2 border-b border-border bg-background px-4 py-2.5">
         <Skeleton className="h-8 w-8 rounded-lg" />
         <Skeleton className="h-6 w-40" />

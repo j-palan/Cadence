@@ -4,15 +4,11 @@ import type { Metadata } from 'next'
 import { ArrowLeft } from 'lucide-react'
 
 import { auth, googleConfigured } from '@/auth'
-import { DevSignIn } from '@/components/auth/dev-sign-in'
 import { SignInButton } from '@/components/auth/sign-in-button'
 import { SiteFooterContent } from '@/components/site-footer'
-import { Wordmark } from '@/components/wordmark'
+import { SiteHeader } from '@/components/site-header'
 
 export const metadata: Metadata = { title: 'Sign in' }
-
-const devLoginEnabled =
-  process.env.NODE_ENV !== 'production' && process.env.AUTH_DEV_LOGIN === 'true'
 
 const AUTH_ERRORS: Record<string, string> = {
   OAuthAccountNotLinked: 'That email is already registered with a different sign-in method.',
@@ -37,16 +33,11 @@ export default async function LoginPage({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="flex h-16 items-center justify-between px-6">
-        <Wordmark />
-      </header>
+      <SiteHeader />
 
       <main className="flex flex-1 items-center justify-center px-6 pb-24">
         <div className="w-full max-w-sm">
           <h1 className="text-display-sm">Sign in</h1>
-          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            Google only. No password to set, nothing to reset.
-          </p>
 
           {error ? (
             <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
@@ -54,7 +45,7 @@ export default async function LoginPage({
             </p>
           ) : null}
 
-          <div className="mt-8 space-y-4">
+          <div className="mt-8">
             {googleConfigured ? (
               <SignInButton next={next} className="w-full" size="lg" />
             ) : (
@@ -65,8 +56,6 @@ export default async function LoginPage({
                 <code className="font-mono text-xs text-foreground">.env.local</code>.
               </p>
             )}
-
-            {devLoginEnabled ? <DevSignIn next={next} /> : null}
           </div>
 
           <p className="mt-10 text-xs leading-relaxed text-muted-foreground">

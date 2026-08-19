@@ -128,35 +128,34 @@ npm run dev
 
 ---
 
-## Signing in locally
+## Signing in
 
-Google is the only identity provider in production, but standing up a Google
-Cloud project just to see the app is a poor first five minutes. So with
-`AUTH_DEV_LOGIN=true` (already set in `.env.example`) the login page offers a
-**"Sign in without Google"** form that takes any email and creates a session
-directly.
-
-This is double-gated: the route behind it returns **404** unless
-`AUTH_DEV_LOGIN` is the literal string `true` **and** `NODE_ENV` is not
-`production`. Setting the flag in a deployed environment does not switch it on.
-
-### Wiring up real Google sign-in
+Google is the only identity provider, so you need a Google Cloud OAuth client
+before you can get past `/login`.
 
 1. Create a project in the [Google Cloud console](https://console.cloud.google.com/).
 2. Configure the OAuth consent screen. Keep the scopes to `openid email profile`
    — those are non-sensitive and need no verification review. Anything beyond
-   them triggers a multi-week process.
-3. Create an OAuth 2.0 Client ID (type: Web application) and register the
-   redirect URI:
+   them triggers a multi-week process. Leave it in **Testing** and add yourself
+   under *Test users* while developing; publishing (capped at 100 users until you
+   do) needs the Terms and Privacy URLs, which the app serves at `/terms` and
+   `/privacy`.
+3. Create an OAuth 2.0 Client ID (type: **Web application**) and register the
+   redirect URI — the port matters:
    ```
    http://localhost:3003/api/auth/callback/google
    ```
-4. Put the client ID and secret in `.env.local` as `AUTH_GOOGLE_ID` and
-   `AUTH_GOOGLE_SECRET`.
+4. Put the client ID and secret in `.env.local`:
+   ```bash
+   AUTH_GOOGLE_ID=
+   AUTH_GOOGLE_SECRET=
+   ```
 
-The login page shows the Google button as soon as both are present.
+The login page shows the Google button as soon as both are present, and explains
+what is missing when they are not.
 
----
+Sessions live in the database rather than a JWT, so signing out and deleting an
+account take effect immediately instead of waiting for a token to expire.
 
 ## Using it
 
@@ -224,7 +223,7 @@ Underlying npm scripts, if you prefer them or don't have go-task:
 
 ```
 app/
-  (auth)/login/          Google button + the dev sign-in escape hatch
+  (auth)/login/          Google sign-in
   (app)/                 Protected: layout runs `await auth()` and gates onboarding
     onboarding/          3-step wizard
     dashboard/           Resume cards
@@ -232,7 +231,7 @@ app/
     resume/[id]/         The LaTeX editor
     settings/            Account, agent snippets, deletion
   api/
-    auth/[...nextauth]/  Auth.js handlers
+    auth/[...nextauth]/  Auth.js handlers (Google redirect + callback)
     generate/            POST: log → Gemini → LaTeX (streamed); 3 modes
     compile/             POST: LaTeX → PDF (Tectonic / pdflatex)
     resumes/             POST create from template; PATCH/DELETE by id
