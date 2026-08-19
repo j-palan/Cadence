@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { FileText, Loader2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Loader2, MoreHorizontal, Trash2 } from 'lucide-react'
 
 import {
   DropdownMenu,
@@ -11,7 +11,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -21,7 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { templateName } from '@/lib/templates/meta'
 import { formatRelativeTime } from '@/lib/utils'
 
 export interface ResumeCardData {
@@ -52,30 +50,34 @@ export function ResumeCard({ resume }: { resume: ResumeCardData }) {
 
   return (
     <>
-      <div className="group relative rounded-lg border border-border bg-card transition-colors hover:border-muted-foreground/40">
-        <Link href={`/resume/${resume.id}`} className="block space-y-3 p-5">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <FileText className="h-4 w-4" />
-            <Badge variant="outline">{templateName(resume.template)}</Badge>
+      <div className="group relative rounded-xl border border-border bg-card transition-colors hover:border-foreground/20">
+        <Link href={`/resume/${resume.id}`} className="block p-5">
+          {/* A miniature of the document itself — more use than an icon. */}
+          <div className="mb-5 space-y-1.5" aria-hidden="true">
+            <div className="h-1.5 w-1/3 rounded-full bg-foreground/70" />
+            <div className="h-1 w-1/4 rounded-full bg-muted-foreground/30" />
+            <div className="mt-3 h-px w-full bg-border" />
+            <div className="h-1 w-full rounded-full bg-muted-foreground/20" />
+            <div className="h-1 w-5/6 rounded-full bg-muted-foreground/20" />
+            <div className="h-1 w-2/3 rounded-full bg-muted-foreground/20" />
           </div>
-          <div className="space-y-1">
-            <h3 className="truncate pr-8 font-medium leading-tight">{resume.name}</h3>
-            <p className="text-xs text-muted-foreground">
-              Edited {formatRelativeTime(resume.updatedAt)}
-            </p>
-          </div>
+
+          <h3 className="truncate pr-7 text-sm font-semibold">{resume.name}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Edited {formatRelativeTime(resume.updatedAt)}
+          </p>
         </Link>
 
-        <div className="absolute right-3 top-3">
+        <div className="absolute right-2.5 top-2.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-muted-foreground opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
+                className="h-7 w-7 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
               >
                 <MoreHorizontal />
-                <span className="sr-only">Resume actions</span>
+                <span className="sr-only">Actions for {resume.name}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

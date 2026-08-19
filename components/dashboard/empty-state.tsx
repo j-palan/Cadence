@@ -1,20 +1,22 @@
 import Link from 'next/link'
-import { FilePlus2 } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { LOG_PATH } from '@/lib/agents'
 
 export function EmptyState() {
   return (
-    <div className="rounded-lg border border-dashed border-border px-6 py-16 text-center">
-      <FilePlus2 className="mx-auto h-8 w-8 text-muted-foreground" />
-      <h2 className="mt-4 font-medium">No resumes yet</h2>
-      <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-        Import <code className="text-primary">{LOG_PATH}</code> and Cadence will turn what your
-        agents logged into a first draft.
+    <div className="rounded-xl border border-dashed border-border px-6 py-20 text-center">
+      <h2 className="text-lg font-semibold tracking-tight">No resumes yet</h2>
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
+        Import <code className="font-mono text-xs text-foreground">{LOG_PATH}</code> and Cadence
+        drafts the first one for you.
       </p>
-      <Button asChild className="mt-6">
-        <Link href="/resume/new">Create your first resume</Link>
+      <Button asChild className="mt-8">
+        <Link href="/resume/new">
+          Create a resume
+          <ArrowRight />
+        </Link>
       </Button>
     </div>
   )

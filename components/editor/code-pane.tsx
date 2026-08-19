@@ -1,10 +1,11 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useTheme } from 'next-themes'
 import CodeMirror from '@uiw/react-codemirror'
 import { StreamLanguage } from '@codemirror/language'
 import { stex } from '@codemirror/legacy-modes/mode/stex'
-import { oneDark } from '@codemirror/theme-one-dark'
+import { githubDark, githubLight } from '@uiw/codemirror-theme-github'
 import { EditorView } from '@codemirror/view'
 
 export function CodePane({
@@ -19,16 +20,14 @@ export function CodePane({
   /** Cmd/Ctrl+S and Cmd/Ctrl+Enter, the two chords Overleaf users reach for. */
   onSave?: () => void
 }) {
-  const extensions = useMemo(
-    () => [StreamLanguage.define(stex), EditorView.lineWrapping],
-    [],
-  )
+  const { resolvedTheme } = useTheme()
+  const extensions = useMemo(() => [StreamLanguage.define(stex), EditorView.lineWrapping], [])
 
   return (
     <CodeMirror
       value={value}
       height="100%"
-      theme={oneDark}
+      theme={resolvedTheme === 'dark' ? githubDark : githubLight}
       extensions={extensions}
       editable={!readOnly}
       onChange={onChange}

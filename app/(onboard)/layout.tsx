@@ -1,6 +1,6 @@
-import Link from 'next/link'
-
 import { SignOutItem } from '@/components/auth/sign-out-item'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { Wordmark } from '@/components/wordmark'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,36 +26,28 @@ export default async function OnboardingLayout({
   const user = await requireUser()
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-dvh flex-col">
       <header className="border-b border-border">
-        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-6">
-          <span className="font-mono text-sm font-medium tracking-tight">cadence</span>
+        <div className="mx-auto flex h-16 max-w-2xl items-center justify-between px-6">
+          <Wordmark href={null} />
 
-          <DropdownMenu>
-            <DropdownMenuTrigger className="font-mono text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              {user.email}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Signed in</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <SignOutItem />
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger className="rounded-md px-2 py-1 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {user.email}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Signed in</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <SignOutItem />
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
 
       <div className="flex-1">{children}</div>
-
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-2xl gap-4 px-6 py-4 text-xs text-muted-foreground">
-          <Link href="/terms" className="hover:text-foreground">
-            Terms
-          </Link>
-          <Link href="/privacy" className="hover:text-foreground">
-            Privacy
-          </Link>
-        </div>
-      </footer>
     </div>
   )
 }
