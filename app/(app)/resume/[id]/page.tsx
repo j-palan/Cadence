@@ -36,7 +36,7 @@ export default async function ResumePage({ params }: { params: { id: string } })
         latexSource,
         updatedAt: resume.updatedAt.toISOString(),
       }}
-      hasLog={Boolean(log)}
+      lastLogImportedAt={log?.importedAt.toISOString() ?? null}
     />
   )
 }
