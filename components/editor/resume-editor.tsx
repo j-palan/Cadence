@@ -373,7 +373,7 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
   const busy = compileState === 'compiling' || regenerating
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col">
+    <div className="flex h-[calc(100dvh-4rem-1px)] flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-border bg-background px-4 py-2.5">
         <Button asChild variant="ghost" size="icon" className="h-8 w-8">
           <Link href="/dashboard" aria-label="Back to dashboard">

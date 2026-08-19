@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react'
 import { auth } from '@/auth'
 import { TransformPreview } from '@/components/landing/transform-preview'
 import { SiteFooterContent } from '@/components/site-footer'
-import { Wordmark } from '@/components/wordmark'
+import { SiteHeader } from '@/components/site-header'
 import { Button } from '@/components/ui/button'
 import { AGENTS, LOG_PATH } from '@/lib/agents'
 
@@ -31,16 +31,11 @@ export default async function LandingPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Wordmark />
-          <div className="flex items-center gap-1">
-            <Button asChild variant="ghost" size="sm">
-              <Link href={appHref}>{signedIn ? 'Dashboard' : 'Sign in'}</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <SiteHeader>
+        <Button asChild variant="ghost" size="sm">
+          <Link href={appHref}>{signedIn ? 'Dashboard' : 'Sign in'}</Link>
+        </Button>
+      </SiteHeader>
 
       <main className="flex-1">
         {/* Hero: the claim, then the proof, and nothing else. */}
@@ -56,16 +51,13 @@ export default async function LandingPage() {
             Then it turns that log into a real LaTeX resume.
           </p>
 
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="mt-9">
             <Button asChild size="lg" block>
               <Link href={appHref}>
                 {ctaLabel}
                 <ArrowRight />
               </Link>
             </Button>
-            <p className="text-xs text-muted-foreground sm:ml-2">
-              Google sign-in · no password
-            </p>
           </div>
 
           <div className="mt-16 sm:mt-20">

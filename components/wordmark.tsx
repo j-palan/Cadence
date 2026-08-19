@@ -3,7 +3,10 @@ import Link from 'next/link'
 import { LogoMark } from '@/components/logo-mark'
 import { cn } from '@/lib/utils'
 
-/** The mark plus the name. A waveform, for cadence. */
+/**
+ * Mark plus name. Set in mono rather than the UI sans: this is a tool for people
+ * who live in a terminal, and it distinguishes the brand from body copy.
+ */
 export function Wordmark({
   href = '/',
   className,
@@ -14,16 +17,18 @@ export function Wordmark({
   const content = (
     <>
       <LogoMark className="h-3.5 w-6 text-success" />
-      <span className="text-sm font-semibold tracking-tight">cadence</span>
+      <span className="font-mono text-[15px] font-medium lowercase tracking-[-0.03em]">
+        cadence
+      </span>
     </>
   )
 
-  const classes = cn('inline-flex items-center gap-2', className)
+  const classes = cn('group inline-flex items-center gap-2.5 text-foreground', className)
 
   if (!href) return <span className={classes}>{content}</span>
 
   return (
-    <Link href={href} className={cn(classes, 'transition-opacity hover:opacity-70')}>
+    <Link href={href} className={cn(classes, 'transition-opacity hover:opacity-80')}>
       {content}
     </Link>
   )

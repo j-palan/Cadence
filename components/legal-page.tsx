@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
+import { SiteFooterContent } from '@/components/site-footer'
+import { SiteHeader } from '@/components/site-header'
+
 /**
  * Shared shell for the terms and privacy pages. Google's OAuth consent screen
  * requires both to be reachable at a stable URL before it can be published.
@@ -15,21 +18,27 @@ export function LegalPage({
   children: React.ReactNode
 }) {
   return (
-    <main className="mx-auto max-w-2xl px-6 py-20">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-3 w-3" />
-        cadence
-      </Link>
+    <div className="flex min-h-dvh flex-col">
+      <SiteHeader />
 
-      <h1 className="mt-6 text-display-sm">{title}</h1>
-      <p className="mt-1 text-xs text-muted-foreground">Last updated {updated}</p>
+      <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
+        <h1 className="text-display-sm">{title}</h1>
+        <p className="mt-2 text-xs text-muted-foreground">Last updated {updated}</p>
 
-      <div className="mt-10 space-y-6 text-sm leading-relaxed text-muted-foreground [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-foreground [&_strong]:text-foreground">
-        {children}
-      </div>
-    </main>
+        <div className="mt-10 space-y-6 text-sm leading-relaxed text-muted-foreground [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-foreground [&_strong]:text-foreground">
+          {children}
+        </div>
+
+        <Link
+          href="/"
+          className="mt-12 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-3 w-3" />
+          Back to home
+        </Link>
+      </main>
+
+      <SiteFooterContent />
+    </div>
   )
 }
