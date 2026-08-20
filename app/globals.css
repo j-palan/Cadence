@@ -179,6 +179,57 @@
   }
 }
 
+/* --- Feature grid ---
+   One ambient loop only (the swirl). Everything else animates once on reveal,
+   because more than one or two continuously moving things reads as noise. */
+@keyframes swirl {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-swirl {
+  animation: swirl 22s linear infinite;
+}
+
+.animate-swirl-reverse {
+  animation: swirl 30s linear infinite reverse;
+}
+
+/* A caret that blinks only while its tile is on screen. */
+@keyframes caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-caret {
+  animation: caret 1.1s steps(1) infinite;
+}
+
+/* Recompile sweep across the mini editor. */
+@keyframes sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  55%,
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.reveal-in .animate-sweep {
+  animation: sweep 2.6s cubic-bezier(0.4, 0, 0.2, 1) 0.7s infinite;
+}
+
 /* The wordmark's waveform traces itself on hover. dasharray exceeds the path
    length so the offset animation fully reveals it. */
 .logo-trace {
