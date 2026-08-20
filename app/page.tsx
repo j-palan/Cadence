@@ -2,27 +2,13 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
 import { auth } from '@/auth'
+import { FeatureGrid } from '@/components/landing/feature-grid'
 import { TransformPreview } from '@/components/landing/transform-preview'
 import { Reveal } from '@/components/reveal'
 import { SiteFooterContent } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { Button } from '@/components/ui/button'
-import { AGENTS, LOG_PATH } from '@/lib/agents'
-
-const STEPS = [
-  {
-    title: 'Add one instruction',
-    body: `Paste it into your agent's config once. From then on it appends what you ship to ${LOG_PATH}.`,
-  },
-  {
-    title: 'Go code',
-    body: 'Your agent writes each win down while the numbers are still in front of it.',
-  },
-  {
-    title: 'Generate and edit',
-    body: 'Import the log, get LaTeX, and refine it in a real editor with the PDF beside you.',
-  },
-]
+import { AGENTS } from '@/lib/agents'
 
 export default async function LandingPage() {
   const session = await auth()
@@ -76,32 +62,22 @@ export default async function LandingPage() {
           </Reveal>
         </section>
 
+        {/* The feature showcase. The three steps that used to live here were
+            three paragraphs of text; each is now a tile that demonstrates the
+            thing instead of describing it. */}
         <section className="border-t border-border">
           <div className="mx-auto max-w-5xl px-6 py-24 sm:py-28">
             <Reveal>
-              <h2 className="text-display-sm max-w-md">Set it up once, then forget about it.</h2>
+              <h2 className="text-display-sm max-w-lg">
+                Set it up once, then forget about it.
+              </h2>
+              <p className="mt-4 max-w-readable text-sm leading-relaxed text-muted-foreground">
+                Paste one instruction into your agent. Everything after that is Cadence&apos;s job.
+              </p>
             </Reveal>
 
-            {/* One Reveal around the list, with the CSS stagger on each item:
-                a per-item Reveal would need `display: contents` to keep the
-                ol/li semantics, and an element with no box cannot be
-                transitioned. */}
-            <Reveal delay={80}>
-              <ol className="mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
-                {STEPS.map((step, index) => (
-                  <li
-                    key={step.title}
-                    className="stagger-item"
-                    style={{ '--stagger-index': index } as React.CSSProperties}
-                  >
-                    <span className="font-mono text-xs text-success">0{index + 1}</span>
-                    <h3 className="mt-3 font-semibold">{step.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                      {step.body}
-                    </p>
-                  </li>
-                ))}
-              </ol>
+            <Reveal delay={80} className="mt-12">
+              <FeatureGrid />
             </Reveal>
           </div>
         </section>
