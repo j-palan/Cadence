@@ -45,6 +45,113 @@ export async function completeOnboarding(userId: string, agents: string[]): Prom
   return row ?? null
 }
 
+/**
+ * The user's own-model configuration, including the encrypted key.
+ *
+ * Returns the ciphertext, so callers are server-side only. Nothing here may be
+ * handed to a client component — see `getAiSettingsForClient`.
+ */
+export async function getAiCredentials(userId: string): Promise<{
+  enabled: boolean
+  provider: string | null
+  model: string | null
+  keyCipher: string | null
+} | null> {
+  const [row] = await db
+    .select({
+      enabled: users.byokEnabled,
+      provider: users.byokProvider,
+      model: users.byokModel,
+      keyCipher: users.byokKeyCipher,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  return row ?? null
+}
+
+/** Safe to serialise to the browser: no ciphertext, only the last four chars. */
+export async function getAiSettingsForClient(userId: string): Promise<{
+  enabled: boolean
+  provider: string | null
+  model: string | null
+  keyHint: string | null
+  verifiedAt: Date | null
+} | null> {
+  const [row] = await db
+    .select({
+      enabled: users.byokEnabled,
+      provider: users.byokProvider,
+      model: users.byokModel,
+      keyHint: users.byokKeyHint,
+      verifiedAt: users.byokVerifiedAt,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  return row ?? null
+}
+
+export async function saveAiCredentials(
+  userId: string,
+  input: {
+    provider: string
+    model: string
+    keyCipher: string
+    keyHint: string
+  },
+): Promise<boolean> {
+  const rows = await db
+    .update(users)
+    .set({
+      byokEnabled: true,
+      byokProvider: input.provider,
+      byokModel: input.model,
+      byokKeyCipher: input.keyCipher,
+      byokKeyHint: input.keyHint,
+      byokVerifiedAt: new Date(),
+    })
+    .where(eq(users.id, userId))
+    .returning({ id: users.id })
+  return rows.length > 0
+}
+
+/** Turning it off keeps the key, so it can be switched back on without re-entry. */
+export async function setAiEnabled(userId: string, enabled: boolean): Promise<boolean> {
+  const rows = await db
+    .update(users)
+    .set({ byokEnabled: enabled })
+    .where(eq(users.id, userId))
+    .returning({ id: users.id })
+  return rows.length > 0
+}
+
+/** Switch model within the provider the stored key belongs to. */
+export async function setAiModel(userId: string, model: string): Promise<boolean> {
+  const rows = await db
+    .update(users)
+    .set({ byokModel: model })
+    .where(eq(users.id, userId))
+    .returning({ id: users.id })
+  return rows.length > 0
+}
+
+export async function clearAiCredentials(userId: string): Promise<boolean> {
+  const rows = await db
+    .update(users)
+    .set({
+      byokEnabled: false,
+      byokProvider: null,
+      byokModel: null,
+      byokKeyCipher: null,
+      byokKeyHint: null,
+      byokVerifiedAt: null,
+    })
+    .where(eq(users.id, userId))
+    .returning({ id: users.id })
+  return rows.length > 0
+}
+
 /** Cascades to accounts, sessions, resumes, and log_imports via FK constraints. */
 export async function deleteUser(userId: string): Promise<boolean> {
   const rows = await db.delete(users).where(eq(users.id, userId)).returning({ id: users.id })

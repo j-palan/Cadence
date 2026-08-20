@@ -7,9 +7,10 @@ import {
   MAX_JOB_DESCRIPTION_CHARS,
   MAX_LOG_CHARS,
   describeGenerationError,
+  resolveEngine,
   streamResumeSource,
   stripCodeFences,
-} from '@/lib/gemini'
+} from '@/lib/generate'
 import {
   createLogImport,
   createResume,
@@ -122,20 +123,32 @@ export async function POST(request: Request) {
     )
   }
 
+  // Own key if the user configured one, otherwise Cadence's default.
+  let engine
+  try {
+    engine = await resolveEngine(userId)
+  } catch (error) {
+    const { status, message } = describeGenerationError(error)
+    return NextResponse.json({ error: message }, { status })
+  }
+
   const encoder = new TextEncoder()
   let assembled = ''
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for await (const chunk of streamResumeSource({
-          mode,
-          log: mode === 'tailor' ? undefined : log,
-          templateSource: mode === 'create' ? getTemplateSource(template) : undefined,
-          existingSource: existing?.latexSource ?? null,
-          jobDescription: mode === 'tailor' ? jobDescription : undefined,
-          customInstructions,
-        })) {
+        for await (const chunk of streamResumeSource(
+          {
+            mode,
+            log: mode === 'tailor' ? undefined : log,
+            templateSource: mode === 'create' ? getTemplateSource(template) : undefined,
+            existingSource: existing?.latexSource ?? null,
+            jobDescription: mode === 'tailor' ? jobDescription : undefined,
+            customInstructions,
+          },
+          engine,
+        )) {
           assembled += chunk
           controller.enqueue(encoder.encode(chunk))
         }

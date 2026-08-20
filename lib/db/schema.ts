@@ -28,6 +28,16 @@ export const users = pgTable('users', {
   onboarded: boolean('onboarded').notNull().default(false),
   agents: text('agents').array().notNull().default([]),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+
+  // Bring-your-own-key. The key is stored encrypted (AES-256-GCM, see
+  // lib/ai/crypto.ts) and never leaves the server; `byokKeyHint` holds the last
+  // four characters, which is all the UI is ever given.
+  byokEnabled: boolean('byok_enabled').notNull().default(false),
+  byokProvider: text('byok_provider'),
+  byokModel: text('byok_model'),
+  byokKeyCipher: text('byok_key_cipher'),
+  byokKeyHint: text('byok_key_hint'),
+  byokVerifiedAt: timestamp('byok_verified_at'),
 })
 
 export const accounts = pgTable(
