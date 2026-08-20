@@ -125,6 +125,60 @@
   }
 }
 
+/* --- Scroll reveal (components/reveal.tsx) ---
+   Content is in the DOM and merely transparent, so crawlers and screen readers
+   are unaffected. */
+.reveal {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-in {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+
+/* Without JavaScript nothing ever adds .reveal-in, so undo the hidden state. */
+@media (scripting: none) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Staggered children inside one revealed block — used by the hero preview so the
+   resume side assembles a beat after the log. */
+.reveal-in .stagger-item {
+  animation: reveal-item 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--stagger-base, 0ms) + var(--stagger-index, 0) * 55ms);
+}
+
+.stagger-item {
+  opacity: 0;
+}
+
+@media (scripting: none) {
+  .stagger-item {
+    opacity: 1;
+  }
+}
+
+@keyframes reveal-item {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* The wordmark's waveform traces itself on hover. dasharray exceeds the path
    length so the offset animation fully reveals it. */
 .logo-trace {
