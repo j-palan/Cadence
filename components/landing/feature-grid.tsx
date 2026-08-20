@@ -3,22 +3,44 @@ import { ArrowRight, FileText, Gauge, KeyRound, Sparkles, Target } from 'lucide-
 import { cn } from '@/lib/utils'
 
 /**
- * The feature showcase: a bento grid where each tile demonstrates a real
- * capability rather than describing one.
+ * The feature showcase: a bento grid where each tile demonstrates a capability
+ * rather than describing one.
  *
- * Colour comes from green at three depths plus one near-black tile, not from a
- * multi-hue palette — a monochrome-with-one-accent grid reads as branded, where
- * assorted gradients would read as a template. The deep tiles use fixed hex
- * values rather than the theme's `--success`, because that token lightens in
- * dark mode and would take white text below AA.
+ * Deliberately close to wordless — a label, a heading of a few words, and a
+ * visual. The earlier version carried a paragraph per tile, which made a grid
+ * meant for glancing into something you had to read. Anything that needs a
+ * sentence belongs in the FAQ below, not here.
  *
- * Motion budget: the whole grid assembles once when scrolled into view (the
- * `.stagger-item` classes, driven by the wrapping Reveal), and exactly one tile
- * carries a continuous ambient loop. Everything else responds only to hover.
+ * Colour comes from green at three depths plus one near-black tile rather than a
+ * multi-hue palette: monochrome-with-one-accent reads as branded where assorted
+ * gradients read as a template. The dark tiles use fixed hex values, not the
+ * `--success` token, because that lightens in dark mode and would take white
+ * text below AA.
+ *
+ * Motion budget: the grid assembles once on scroll (`.stagger-item`, driven by
+ * the wrapping Reveal) and exactly one tile carries a continuous loop.
  */
-const TILE = 'group relative overflow-hidden rounded-xl border transition-all duration-300 hover:-translate-y-0.5'
+const TILE =
+  'group relative overflow-hidden rounded-xl border transition-all duration-300 hover:-translate-y-0.5'
 
-function Label({ icon: Icon, children, tone = 'dark' }: {
+const LOG_LINES = [
+  '## cadence',
+  '- Cut p99 840ms → 190ms',
+  '- Shipped SSO, 12k seats',
+  '- Migrated 3.1TB Postgres',
+  '## pgshard',
+  '- 4.2M reads/min, p99 8ms',
+  '- Cut shard rebalance 40%',
+  '## opslevel',
+  '- LLM-as-judge harness, 0-100',
+  '- Prompt caching, 10x cheaper',
+]
+
+function Label({
+  icon: Icon,
+  children,
+  tone = 'dark',
+}: {
   icon: typeof Sparkles
   children: React.ReactNode
   tone?: 'dark' | 'light'
@@ -27,7 +49,7 @@ function Label({ icon: Icon, children, tone = 'dark' }: {
     <p
       className={cn(
         'flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.12em]',
-        tone === 'light' ? 'text-white/70' : 'text-muted-foreground',
+        tone === 'light' ? 'text-white/60' : 'text-muted-foreground',
       )}
     >
       <Icon className="h-3 w-3" />
@@ -39,57 +61,51 @@ function Label({ icon: Icon, children, tone = 'dark' }: {
 export function FeatureGrid() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {/* 1 — the premise. Tall tile, deep green, log appending itself. */}
+      {/* 1 — the premise. Tall tile; the log does the explaining. */}
       <article
-        className={cn(TILE, 'border-transparent bg-[#0f5a2e] p-6 lg:row-span-2')}
+        className={cn(TILE, 'stagger-item flex flex-col border-transparent bg-[#0f5a2e] p-6 lg:row-span-2')}
         style={{ '--stagger-index': 0 } as React.CSSProperties}
       >
-        <div className="stagger-item" style={{ '--stagger-index': 0 } as React.CSSProperties}>
-          <Label icon={Sparkles} tone="light">
-            Always on
-          </Label>
-          <h3 className="mt-3 text-xl font-semibold leading-tight text-white">
-            Your agent writes it down, so you don&apos;t have to remember.
-          </h3>
-          <p className="mt-2.5 text-sm leading-relaxed text-white/70">
-            One instruction in its config. Every win appended the moment it happens, with the
-            numbers still in front of it.
-          </p>
+        <Label icon={Sparkles} tone="light">
+          Always on
+        </Label>
+        <h3 className="mt-3 text-xl font-semibold leading-tight text-white">
+          Your agent writes it down.
+        </h3>
 
-          <div className="mt-6 rounded-lg bg-black/25 p-3.5 font-mono text-[10.5px] leading-[1.75] text-white/80">
-            <p className="text-white/40">~/.claude/resume-log.md</p>
-            {[
-              '- Cut p99 840ms → 190ms',
-              '- Shipped SSO, 12k seats',
-              '- Migrated 3.1TB Postgres',
-            ].map((line, i) => (
-              <p
-                key={line}
-                className="stagger-item truncate"
-                style={{ '--stagger-index': i + 2, '--stagger-base': '260ms' } as React.CSSProperties}
-              >
-                {line}
-              </p>
-            ))}
-            <p className="flex items-center gap-1 text-white/50">
-              <span>-</span>
-              <span className="animate-caret inline-block h-3 w-1.5 bg-white/60 align-middle" />
+        <div className="mt-6 flex-1 rounded-lg bg-black/25 p-3.5 font-mono text-[10.5px] leading-[1.8] text-white/80">
+          <p className="text-white/40">~/.claude/resume-log.md</p>
+          {/* Enough lines that the panel reads as a real file rather than a
+              short list padded out to fill the tile. */}
+          {LOG_LINES.map((line, i) => (
+            <p
+              key={i}
+              className={cn(
+                'stagger-item truncate',
+                line.startsWith('##') && 'mt-2 text-white/40',
+              )}
+              style={
+                { '--stagger-index': i + 2, '--stagger-base': '220ms' } as React.CSSProperties
+              }
+            >
+              {line || '\u00a0'}
             </p>
-          </div>
+          ))}
+          <p className="flex items-center gap-1 text-white/50">
+            <span>-</span>
+            <span className="animate-caret inline-block h-3 w-1.5 bg-white/60 align-middle" />
+          </p>
         </div>
       </article>
 
-      {/* 2 — the constraint that makes it usable. */}
+      {/* 2 — the constraint. The bars show the bullet count. */}
       <article
         className={cn(TILE, 'stagger-item border-border bg-card p-6 hover:border-foreground/20')}
         style={{ '--stagger-index': 1 } as React.CSSProperties}
       >
-        <Label icon={FileText}>Held to one page</Label>
-        <h3 className="mt-3 font-semibold leading-snug">
-          4–5 bullets a job. Never spills to page two.
-        </h3>
+        <Label icon={FileText}>One page, always</Label>
+        <h3 className="mt-3 font-semibold leading-snug">Never spills to page two.</h3>
 
-        {/* A page that visibly fits. */}
         <div className="mt-5 rounded-md border border-border bg-background p-3">
           <div className="space-y-1.5">
             <div className="h-1 w-1/3 rounded-full bg-foreground/70" />
@@ -97,7 +113,7 @@ export function FeatureGrid() {
             {[100, 92, 96, 78].map((w, i) => (
               <div
                 key={i}
-                className="h-1 rounded-full bg-success/45 transition-all duration-500 group-hover:bg-success/70"
+                className="h-1 rounded-full bg-success/45 transition-colors duration-500 group-hover:bg-success/70"
                 style={{ width: `${w}%` }}
               />
             ))}
@@ -106,17 +122,15 @@ export function FeatureGrid() {
         </div>
       </article>
 
-      {/* 3 — near-black tile for contrast. Keyword alignment, shown as a swap. */}
+      {/* 3 — near-black tile. The swap shows what tailoring does. */}
       <article
         className={cn(TILE, 'stagger-item border-transparent bg-neutral-950 p-6')}
         style={{ '--stagger-index': 2 } as React.CSSProperties}
       >
         <Label icon={Target} tone="light">
-          Tailor per application
+          Tailor to the job
         </Label>
-        <h3 className="mt-3 font-semibold leading-snug text-white">
-          Matches the posting&apos;s words. Never invents a skill.
-        </h3>
+        <h3 className="mt-3 font-semibold leading-snug text-white">Speaks their language.</h3>
 
         <div className="mt-5 space-y-2 font-mono text-[11px]">
           <p className="flex items-center gap-2 text-white/45">
@@ -129,24 +143,19 @@ export function FeatureGrid() {
             <ArrowRight className="h-3 w-3 shrink-0 text-success" />
             <span className="text-success">PostgreSQL</span>
           </p>
-          <p className="pt-1 text-[10px] normal-case tracking-normal text-white/35">
-            Kubernetes not in your log? It stays out.
-          </p>
         </div>
       </article>
 
-      {/* 4 — the editor, wide tile. */}
+      {/* 4 — the editor, wide. */}
       <article
         className={cn(TILE, 'stagger-item border-border bg-card p-6 sm:col-span-2')}
         style={{ '--stagger-index': 3 } as React.CSSProperties}
       >
-        <Label icon={FileText}>Real LaTeX, live PDF</Label>
-        <h3 className="mt-3 font-semibold leading-snug">
-          Source on the left, compiled page on the right.
-        </h3>
+        <Label icon={FileText}>Real LaTeX</Label>
+        <h3 className="mt-3 font-semibold leading-snug">Source left, compiled page right.</h3>
 
         <div className="relative mt-5 grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-2">
-          {/* The sweep is the one hint of process, and it only runs on reveal. */}
+          {/* The one hint of process, and it only runs on reveal. */}
           <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-1/4 animate-sweep bg-gradient-to-r from-transparent via-success/12 to-transparent" />
           <div className="space-y-1.5 bg-background p-3 font-mono text-[9.5px] leading-relaxed text-muted-foreground">
             <p>\resumeSubheading</p>
@@ -165,7 +174,7 @@ export function FeatureGrid() {
         </div>
       </article>
 
-      {/* 5 — the ambient tile. This is the only continuous animation on the page. */}
+      {/* 5 — the ambient tile. The only continuous animation on the page. */}
       <article
         className={cn(TILE, 'stagger-item border-transparent bg-[#08301a] p-6')}
         style={{ '--stagger-index': 4 } as React.CSSProperties}
@@ -186,21 +195,17 @@ export function FeatureGrid() {
           <p className="mt-4 font-mono text-4xl font-semibold tracking-tight text-white">
             552<span className="text-lg text-white/50">ms</span>
           </p>
-          <p className="mt-2 text-sm leading-relaxed text-white/65">
-            A real TeX engine renders the page you&apos;ll send. Download the exact PDF it produced.
-          </p>
+          <p className="mt-2 text-sm text-white/60">Real TeX. Download that exact PDF.</p>
         </div>
       </article>
 
-      {/* 6 — bring your own model. */}
+      {/* 6 — bring your own model. The chips are the explanation. */}
       <article
         className={cn(TILE, 'stagger-item border-border bg-card p-6 sm:col-span-2')}
         style={{ '--stagger-index': 5 } as React.CSSProperties}
       >
         <Label icon={KeyRound}>Your key, your model</Label>
-        <h3 className="mt-3 font-semibold leading-snug">
-          Runs on ours by default. Swap in your own any time.
-        </h3>
+        <h3 className="mt-3 font-semibold leading-snug">Swap in your own any time.</h3>
 
         <div className="mt-5 flex flex-wrap gap-2">
           {[
