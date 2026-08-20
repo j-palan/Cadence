@@ -58,16 +58,20 @@ COPY package.json package-lock.json ./
 COPY scripts ./scripts
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
+# lib/ is needed at runtime, not just at build: lib/templates/server.ts reads the
+# .tex files from disk relative to process.cwd(). It is copied BEFORE the build
+# output so the cache-warming layer below stays cached across ordinary code
+# changes — warming needs only the template, and re-running it on every deploy
+# would re-download 43MB and add ~38s for nothing.
+COPY lib ./lib
+RUN mkdir -p "$CADENCE_TEX_CACHE" \
+ && npm run tex:warm \
+ && chown -R node:node "$CADENCE_TEX_CACHE"
+
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY next.config.mjs ./
-# lib/ is needed at runtime, not just at build: lib/templates/server.ts reads the
-# .tex files from disk relative to process.cwd().
-COPY lib ./lib
-
-RUN mkdir -p "$CADENCE_TEX_CACHE" \
- && npm run tex:warm \
- && chown -R node:node "$CADENCE_TEX_CACHE" /app/.next
+RUN chown -R node:node /app/.next
 
 ENV NODE_ENV=production
 ENV PORT=3000
