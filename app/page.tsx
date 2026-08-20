@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
 import { auth } from '@/auth'
+import { Faq } from '@/components/landing/faq'
 import { FeatureGrid } from '@/components/landing/feature-grid'
 import { TransformPreview } from '@/components/landing/transform-preview'
 import { Reveal } from '@/components/reveal'
@@ -78,6 +79,18 @@ export default async function LandingPage() {
 
             <Reveal delay={80} className="mt-12">
               <FeatureGrid />
+            </Reveal>
+          </div>
+        </section>
+
+        <section className="border-t border-border">
+          <div className="mx-auto max-w-3xl px-6 py-24 sm:py-28">
+            <Reveal>
+              <h2 className="text-display-sm">Questions.</h2>
+            </Reveal>
+
+            <Reveal delay={80} className="mt-10">
+              <Faq />
             </Reveal>
           </div>
         </section>
