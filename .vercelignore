@@ -1,0 +1,9 @@
+# Never upload local secrets or build artefacts to the Vercel build context.
+.env
+.env.*
+!.env.example
+
+.next
+node_modules
+.cadence
+plan.md

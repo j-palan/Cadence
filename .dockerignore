@@ -1,0 +1,19 @@
+# Never bake local secrets or build artefacts into the image.
+.env
+.env.*
+!.env.example
+
+.git
+.github
+node_modules
+.next
+.cadence
+.vercel
+
+# Generated during the build by postinstall / tex:warm.
+public/pdf.worker.min.mjs
+
+# Not needed at runtime.
+plan.md
+README.md
+Taskfile.yml

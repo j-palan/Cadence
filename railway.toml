@@ -1,0 +1,12 @@
+# Railway picks up the Dockerfile automatically; this pins the bits that matter.
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# /terms is static and touches neither the database nor a session, so it is a
+# health check that reports on the app rather than on Neon.
+healthcheckPath = "/terms"
+healthcheckTimeout = 120
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
