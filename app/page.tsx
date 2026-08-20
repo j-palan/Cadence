@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react'
 
 import { auth } from '@/auth'
 import { TransformPreview } from '@/components/landing/transform-preview'
+import { Reveal } from '@/components/reveal'
 import { SiteFooterContent } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { Button } from '@/components/ui/button'
@@ -38,77 +39,107 @@ export default async function LandingPage() {
       </SiteHeader>
 
       <main className="flex-1">
-        {/* Hero: the claim, then the proof, and nothing else. */}
+        {/*
+          Hero. One choreographed entrance — headline, sub, CTA, then the
+          preview — staggered ~80ms apart so it reads as a single movement
+          rather than four separate animations.
+        */}
         <section className="mx-auto max-w-5xl px-6 pb-24 pt-20 sm:pb-32 sm:pt-28">
-          <h1 className="text-display max-w-2xl">
-            You forgot what you shipped.
-            <br />
-            <span className="text-muted-foreground">Your agent didn&apos;t.</span>
-          </h1>
+          <Reveal>
+            <h1 className="text-display max-w-2xl">
+              You forgot what you shipped.
+              <br />
+              <span className="text-muted-foreground">Your agent didn&apos;t.</span>
+            </h1>
+          </Reveal>
 
-          <p className="mt-7 max-w-readable text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Cadence gives your coding agent one instruction: write down every win as it happens.
-            Then it turns that log into a real LaTeX resume.
-          </p>
+          <Reveal delay={90}>
+            <p className="mt-7 max-w-readable text-base leading-relaxed text-muted-foreground sm:text-lg">
+              Cadence gives your coding agent one instruction: write down every win as it happens.
+              Then it turns that log into a real LaTeX resume.
+            </p>
+          </Reveal>
 
-          <div className="mt-9">
-            <Button asChild size="lg" block>
-              <Link href={appHref}>
-                {ctaLabel}
-                <ArrowRight />
-              </Link>
-            </Button>
-          </div>
+          <Reveal delay={180}>
+            <div className="mt-9">
+              <Button asChild size="lg" block className="group">
+                <Link href={appHref}>
+                  {ctaLabel}
+                  <ArrowRight className="transition-transform duration-300 group-hover:translate-x-0.5" />
+                </Link>
+              </Button>
+            </div>
+          </Reveal>
 
-          <div className="mt-16 sm:mt-20">
+          <Reveal delay={270} className="mt-16 sm:mt-20">
             <TransformPreview />
-          </div>
+          </Reveal>
         </section>
 
         <section className="border-t border-border">
           <div className="mx-auto max-w-5xl px-6 py-24 sm:py-28">
-            <h2 className="text-display-sm max-w-md">Set it up once, then forget about it.</h2>
+            <Reveal>
+              <h2 className="text-display-sm max-w-md">Set it up once, then forget about it.</h2>
+            </Reveal>
 
-            <ol className="mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
-              {STEPS.map((step, index) => (
-                <li key={step.title}>
-                  <span className="font-mono text-xs text-success">0{index + 1}</span>
-                  <h3 className="mt-3 font-semibold">{step.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
-                </li>
-              ))}
-            </ol>
+            {/* One Reveal around the list, with the CSS stagger on each item:
+                a per-item Reveal would need `display: contents` to keep the
+                ol/li semantics, and an element with no box cannot be
+                transitioned. */}
+            <Reveal delay={80}>
+              <ol className="mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
+                {STEPS.map((step, index) => (
+                  <li
+                    key={step.title}
+                    className="stagger-item"
+                    style={{ '--stagger-index': index } as React.CSSProperties}
+                  >
+                    <span className="font-mono text-xs text-success">0{index + 1}</span>
+                    <h3 className="mt-3 font-semibold">{step.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                      {step.body}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </Reveal>
           </div>
         </section>
 
         {/* Agents: one quiet line, no logo wall. */}
         <section className="border-t border-border">
-          <div className="mx-auto max-w-5xl px-6 py-16">
-            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Works with</p>
-            <p className="mt-4 font-mono text-sm leading-relaxed text-foreground/80">
-              {AGENTS.map((agent) => agent.name).join('  ·  ')}
-            </p>
-            <p className="mt-4 max-w-readable text-sm text-muted-foreground">
-              Any agent that reads an instructions file works — the snippet is plain English, not
-              an integration.
-            </p>
-          </div>
+          <Reveal>
+            <div className="mx-auto max-w-5xl px-6 py-16">
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                Works with
+              </p>
+              <p className="mt-4 font-mono text-sm leading-relaxed text-foreground/80">
+                {AGENTS.map((agent) => agent.name).join('  ·  ')}
+              </p>
+              <p className="mt-4 max-w-readable text-sm text-muted-foreground">
+                Any agent that reads an instructions file works — the snippet is plain English, not
+                an integration.
+              </p>
+            </div>
+          </Reveal>
         </section>
 
         <section className="border-t border-border">
-          <div className="mx-auto max-w-5xl px-6 py-24 sm:py-28">
-            <h2 className="text-display-sm max-w-lg">
-              Your next resume is already half-written.
-            </h2>
-            <div className="mt-9">
-              <Button asChild size="lg" block>
-                <Link href={appHref}>
-                  {ctaLabel}
-                  <ArrowRight />
-                </Link>
-              </Button>
+          <Reveal>
+            <div className="mx-auto max-w-5xl px-6 py-24 sm:py-28">
+              <h2 className="text-display-sm max-w-lg">
+                Your next resume is already half-written.
+              </h2>
+              <div className="mt-9">
+                <Button asChild size="lg" block className="group">
+                  <Link href={appHref}>
+                    {ctaLabel}
+                    <ArrowRight className="transition-transform duration-300 group-hover:translate-x-0.5" />
+                  </Link>
+                </Button>
+              </div>
             </div>
-          </div>
+          </Reveal>
         </section>
       </main>
 
