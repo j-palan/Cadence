@@ -307,22 +307,52 @@ across requests, and only the engine writes to it.
 
 ## Deploying
 
-The LaTeX engine is a native binary, so `/api/compile` needs a runtime that can
-execute one — **a container or a VM, not Vercel's serverless functions.** Build a
-image on a base with Tectonic installed, or run `next start` on a host where it
-is on `PATH`. Everything else (Neon, Auth.js, Upstash) is platform-agnostic.
+`/api/compile` shells out to a TeX binary, so Cadence needs a runtime that can
+execute one. **That rules out Vercel's serverless functions** — everything else
+works there, but PDF preview and download return 503. Deploy the container
+instead; the `Dockerfile` is the supported target and works on Railway, Render,
+Fly.io, or Cloud Run.
 
-Also set for production:
+```bash
+docker build -t cadence .
+docker run -p 3000:3000 --env-file .env.local cadence
+```
 
-- `AUTH_URL` and `NEXT_PUBLIC_APP_URL` to the real origin
-- The Google redirect URI for that origin
-- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — `/api/generate` is the
-  one route that costs money per call, and without these it runs unthrottled
-  (the server logs an error saying so)
-- `CADENCE_TEX_CACHE` to a persistent writable path, and warm it during the
-  image build
+The image is two-stage on purpose. Build-only dependencies are about 1.2GB and
+useless at runtime, and pruning them in a single stage does not help because
+layers are additive — a later `npm prune` leaves the bytes in the earlier layer.
+Splitting the stages takes it from 1.99GB to 1.52GB.
 
----
+Three things the Dockerfile handles that are easy to get wrong:
+
+- **`scripts/` is copied before `npm ci`.** `postinstall` copies the pdf.js
+  worker, so the install fails at that layer without it.
+- **The TeX cache is warmed at build time** into `/opt/tex-cache`. Tectonic
+  downloads ~43MB of support files on first use (~21s); baking it in means no
+  user waits for that, and a restart does not lose it. `/tmp` would.
+- **Tectonic is pinned to 0.17.0.** The layout limits were measured against this
+  engine; a silent upgrade could change line breaking and therefore the page
+  budget.
+
+Measured in the built image, running as the non-root `node` user: **552ms** to
+compile the bundled template to a 33KB single-page PDF, and Next boots in 161ms.
+
+`railway.toml` and `render.yaml` are included; each host reads only its own file.
+Both health-check `/terms`, which is static and touches neither Neon nor a
+session, so the check reports on the app rather than on its dependencies.
+
+Set every variable from `.env.example` in the host's dashboard, plus:
+
+- `AUTH_URL` and `NEXT_PUBLIC_APP_URL` — the real origin
+- `BYOK_ENCRYPTION_KEY` — a dedicated secret, so rotating `AUTH_SECRET` does not
+  invalidate users' stored API keys
+- `UPSTASH_REDIS_REST_URL` / `_TOKEN` — `/api/generate` is the one route that
+  costs money per call, and runs unthrottled without them
+
+Register `https://your-domain/api/auth/callback/google` with the Google OAuth
+client, and run migrations from a laptop against the production database
+(`npm run db:migrate`) — build-only dependencies including drizzle-kit are pruned
+from the runtime image.
 
 ## Credits
 

@@ -1,0 +1,34 @@
+# Render blueprint. `render.yaml` and `railway.toml` can coexist; each host reads
+# only its own file.
+services:
+  - type: web
+    name: cadence
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter # the free plan spins down, and a cold start loses nothing but time
+    healthCheckPath: /terms
+    envVars:
+      # Values are set in the dashboard; listing them here documents what is
+      # required and keeps `sync: false` from baking secrets into the repo.
+      - key: AUTH_SECRET
+        sync: false
+      - key: AUTH_URL
+        sync: false
+      - key: AUTH_GOOGLE_ID
+        sync: false
+      - key: AUTH_GOOGLE_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: BYOK_ENCRYPTION_KEY
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
