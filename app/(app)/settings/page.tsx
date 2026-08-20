@@ -3,22 +3,26 @@ import type { Metadata } from 'next'
 
 import { AgentSnippet } from '@/components/onboarding/agent-snippet'
 import { Appearance } from '@/components/settings/appearance'
+import { ModelSettings } from '@/components/settings/model-settings'
 import { DeleteAccount } from '@/components/settings/delete-account'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AGENTS, LOG_PATH } from '@/lib/agents'
+import { DEFAULT_MODEL } from '@/lib/ai/engine'
 import { requireOnboardedUser } from '@/lib/auth-guards'
-import { countResumes, getUser } from '@/lib/db/queries'
+import { countResumes, getAiSettingsForClient, getUser } from '@/lib/db/queries'
 
 export const metadata: Metadata = { title: 'Settings' }
 
 export default async function SettingsPage() {
   const sessionUser = await requireOnboardedUser()
 
-  const [user, resumeCount] = await Promise.all([
+  const [user, resumeCount, aiSettings] = await Promise.all([
     getUser(sessionUser.id),
     countResumes(sessionUser.id),
+    // Deliberately the client-safe reader: no ciphertext crosses this boundary.
+    getAiSettingsForClient(sessionUser.id),
   ])
 
   if (!user) redirect('/login')
@@ -59,6 +63,27 @@ export default async function SettingsPage() {
             })}
           />
           <Row label="Resumes" value={String(resumeCount)} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Model</CardTitle>
+          <CardDescription>
+            Cadence generates with its own key by default. Add your own to use a different model,
+            and switch it off any time to go back.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ModelSettings
+            settings={{
+              enabled: aiSettings?.enabled ?? false,
+              provider: aiSettings?.provider ?? null,
+              model: aiSettings?.model ?? null,
+              keyHint: aiSettings?.keyHint ?? null,
+            }}
+            defaultModel={DEFAULT_MODEL}
+          />
         </CardContent>
       </Card>
 

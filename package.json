@@ -18,6 +18,7 @@
     "check:shape": "node scripts/check-resume-shape.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@auth/drizzle-adapter": "^1.11.3",
     "@codemirror/language": "^6.12.4",
     "@codemirror/legacy-modes": "^6.5.3",

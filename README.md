@@ -38,7 +38,7 @@ them as you need them.
 | **Node 20+** | Next.js 14 | Built and tested on Node 22 |
 | **A LaTeX engine** | Compiling resumes to PDF | `brew install tectonic` — one ~30MB binary that downloads only the packages a document uses. An existing TeX Live / MacTeX install works too; Cadence falls back to `pdflatex`. |
 | **A Postgres database** | Users, resumes, logs | A free [Neon](https://neon.tech) project is the path of least resistance — it is serverless, so there is nothing to run locally. |
-| **A Gemini API key** | Generating a resume from a log | Optional, and free — get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). Without it the editor works fine; only generation is unavailable. |
+| **A Gemini API key** | Generating a resume from a log (users can also bring their own — see below) | Optional, and free — get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). Without it the editor works fine; only generation is unavailable. |
 
 ### On the LaTeX engine
 
@@ -157,6 +157,28 @@ what is missing when they are not.
 Sessions live in the database rather than a JWT, so signing out and deleting an
 account take effect immediately instead of waiting for a token to expire.
 
+## Bringing your own model
+
+Generation runs on the server's Gemini key by default. Settings → **Model** lets
+a user store their own provider key and pick any model in the catalog
+(`lib/ai/catalog.ts` — Gemini and Anthropic today). It can be switched off at any
+time, which reverts to the default without discarding the key, or removed
+entirely. The settings card always names the model actually in use and whose key
+is paying for it.
+
+How keys are handled:
+
+- **Verified before storage.** Saving makes a minimal real call to the provider,
+  so a typo or a wrong model is caught while the field is still on screen.
+- **Encrypted at rest** with AES-256-GCM and a per-record IV, keyed by HKDF from
+  `BYOK_ENCRYPTION_KEY` (falling back to `AUTH_SECRET`). Tampering fails closed.
+- **Never returned to the browser.** The client only ever receives the last four
+  characters. `getAiSettingsForClient` is the only reader a page may call;
+  `getAiCredentials` returns ciphertext and is server-only.
+- **Never silently redirected.** Cadence retries its own default key across
+  fallback models when the free tier is busy, but a user's own key only ever runs
+  the model they chose — it is their bill.
+
 ## Using it
 
 1. **Onboarding** picks your agents and hands you the snippet for each. Paste it
@@ -239,8 +261,13 @@ app/
 lib/
   db/queries.ts          ALL data access; every function takes userId first
   latex.ts               Engine invocation, sandboxing, log parsing
-  gemini.ts              Gemini client + streaming
+  generate.ts            Prompt assembly, streaming, retry/fallback
   prompts.ts             The three system prompts (create / update / tailor)
+  ai/
+    catalog.ts           Supported providers and models (isomorphic)
+    crypto.ts            AES-256-GCM for user-supplied API keys
+    engine.ts            Resolves own-key vs. default per request
+    providers.ts         One streaming interface over Gemini and Anthropic
   templates/jake.tex     The resume template
   agents.ts              Per-agent snippets and config paths
 ```

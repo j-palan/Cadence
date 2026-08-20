@@ -32,10 +32,10 @@ export default function PrivacyPage() {
       <section className="space-y-2">
         <h2>Who it is shared with</h2>
         <p>
-          Log content and resume source are sent to Google&apos;s Gemini API to generate a resume,
-          using the <span className="font-mono">{GENERATION_MODEL}</span> model. Nothing is sold.
-          Data is stored in a managed Postgres database. Note that Google&apos;s free Gemini tier
-          may use submitted content to improve their models — see{' '}
+          To generate a resume, your log and resume text are sent to a language-model provider. By
+          default that is Google&apos;s Gemini API using the{' '}
+          <span className="font-mono">{GENERATION_MODEL}</span> model on Cadence&apos;s key. Note
+          that Google&apos;s free tier may use submitted content to improve their models — see{' '}
           <a
             href="https://ai.google.dev/gemini-api/terms"
             target="_blank"
@@ -46,6 +46,13 @@ export default function PrivacyPage() {
           </a>
           .
         </p>
+        <p>
+          If you add your own API key in Settings, your content goes to the provider you chose
+          instead, under <strong>your</strong> agreement with them rather than Cadence&apos;s. Your
+          key is encrypted before storage, is never returned to the browser, and is used only to
+          generate your own resumes. Removing it in Settings deletes it.
+        </p>
+        <p>Nothing is sold. Data is stored in a managed Postgres database.</p>
       </section>
 
       <section className="space-y-2">
