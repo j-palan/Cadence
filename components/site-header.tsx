@@ -34,16 +34,16 @@ export function SiteHeader({
   const isEditor = pathname.startsWith('/resume/') && pathname !== '/resume/new'
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur">
+    <header className="glass-bar glass-edge sticky top-0 z-30 border-b border-border/70">
       {/* Signature hairline: green at the wordmark, fading out across the page. */}
       <div
         aria-hidden="true"
-        className="h-px bg-gradient-to-r from-success/70 via-success/15 to-transparent"
+        className="relative h-px bg-gradient-to-r from-success/70 via-success/15 to-transparent"
       />
 
       <div
         className={cn(
-          'mx-auto flex h-16 items-center justify-between gap-4 transition-[max-width,padding] duration-500 ease-out',
+          'relative mx-auto flex h-16 items-center justify-between gap-4 transition-[max-width,padding] duration-500 ease-out',
           isEditor ? 'max-w-full px-4' : 'max-w-[1600px] px-6',
         )}
       >

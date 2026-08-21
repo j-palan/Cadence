@@ -7,6 +7,7 @@ import { auth, googleConfigured } from '@/auth'
 import { SignInButton } from '@/components/auth/sign-in-button'
 import { SiteFooterContent } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export const metadata: Metadata = { title: 'Sign in' }
 
@@ -33,7 +34,11 @@ export default async function LoginPage({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <SiteHeader />
+      {/* Still signed out here, so the toggle stays — it would be odd for it to
+          vanish on the way to signing in and reappear on going back. */}
+      <SiteHeader>
+        <ThemeToggle />
+      </SiteHeader>
 
       <main className="flex flex-1 items-center justify-center px-6 pb-24">
         <div className="w-full max-w-sm">

@@ -7,12 +7,14 @@
    * White, black, green.
    *
    * The ground is a warm off-white and surfaces are pure white — that
-   * separation is what lets cards read without shadows. Green is reserved for
+   * separation is what lets cards read without shadows. The whole light ramp
+   * moves together: shifting the ground without the muted and border tokens
+   * would collapse the gap that makes hover states and dividers visible on it. Green is reserved for
    * one thing: the accent. It marks the primary action and "this worked", and
    * appears nowhere else, so it never competes with itself.
    */
   :root {
-    --background: 40 12% 95%;
+    --background: 40 13% 93%;
     --foreground: 0 0% 4%;
 
     --card: 0 0% 100%;
@@ -25,13 +27,13 @@
     --primary: 0 0% 7%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 40 8% 91%;
+    --secondary: 40 9% 89%;
     --secondary-foreground: 0 0% 12%;
 
-    --muted: 40 8% 91%;
+    --muted: 40 9% 89%;
     --muted-foreground: 30 4% 40%;
 
-    --accent: 40 8% 91%;
+    --accent: 40 9% 89%;
     --accent-foreground: 0 0% 7%;
 
     /* The one accent colour. Deep enough to pass AA as text on both the
@@ -43,8 +45,8 @@
     --destructive: 0 72% 44%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 36 8% 87%;
-    --input: 36 8% 84%;
+    --border: 36 9% 85%;
+    --input: 36 9% 82%;
     --ring: 145 70% 28%;
 
     --radius: 0.5rem;
@@ -230,6 +232,108 @@
   animation: sweep 2.6s cubic-bezier(0.4, 0, 0.2, 1) 0.7s infinite;
 }
 
+/* --- Feature tile ambient motion ---
+   Every loop below returns to its resting state rather than ending elsewhere,
+   so the reduced-motion rule (which collapses duration to ~0 and one
+   iteration) lands back on the static design instead of freezing mid-way.
+   Durations are long and phases deliberately out of sync, so the tiles read as
+   texture rather than six things blinking at you. */
+
+/* Log tile: a slow tail, as if the file were still being written to. The list
+   is duplicated in the markup, so -50% lands exactly on the seam. */
+@keyframes log-tail {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+.reveal-in .animate-log-tail {
+  animation: log-tail 26s linear 1.4s infinite;
+}
+
+/* One-page tile: bars grow from the left once, on reveal. scaleX rather than
+   width, so it never triggers layout. */
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.reveal-in .animate-bar {
+  transform-origin: left;
+  animation: bar-grow 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--stagger-index, 0) * 90ms + 220ms);
+}
+
+/* Tailor tile: the replacement word arrives, pauses, and resets. */
+@keyframes swap-in {
+  0%,
+  8% {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  18%,
+  82% {
+    opacity: 1;
+    transform: none;
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+.reveal-in .animate-swap {
+  animation: swap-in 6s ease-in-out infinite;
+  animation-delay: calc(var(--stagger-index, 0) * 400ms + 900ms);
+}
+
+/* Speed tile: an arc that completes in 552ms, then holds — the number, drawn. */
+@keyframes arc-sweep {
+  0% {
+    stroke-dashoffset: 176;
+  }
+  9.2%,
+  88% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 176;
+  }
+}
+
+.reveal-in .animate-arc {
+  animation: arc-sweep 6s ease-out 0.6s infinite;
+}
+
+/* Models tile: the active highlight walks along the row. */
+@keyframes chip-cycle {
+  0%,
+  16% {
+    border-color: hsl(var(--success) / 0.4);
+    background-color: hsl(var(--success) / 0.1);
+    color: hsl(var(--success));
+  }
+  28%,
+  100% {
+    border-color: hsl(var(--border));
+    background-color: transparent;
+    color: hsl(var(--muted-foreground));
+  }
+}
+
+.reveal-in .animate-chip {
+  animation: chip-cycle 8s ease-in-out infinite;
+  animation-delay: calc(var(--stagger-index, 0) * 2s);
+}
+
 /* The wordmark's waveform traces itself on hover. dasharray exceeds the path
    length so the offset animation fully reveals it. */
 .logo-trace {
@@ -276,7 +380,72 @@
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    /* Delays must go too: without this, a staggered animation still sits in its
+       delay phase and fires later, which is exactly the surprise movement the
+       preference exists to prevent. */
+    animation-delay: 0s !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * The top bar
+ * ---------------------------------------------------------------------------
+ *
+ * Tint plus blur, nothing exotic. The tint is the page ground itself, so over
+ * plain page the bar is one continuous surface with the content below it; it
+ * only shows itself when colour passes underneath, and the greens and
+ * near-blacks of the feature grid soften as they slide under.
+ *
+ * `saturate` is what keeps it from looking like frosted plastic — a real tinted
+ * pane lets saturated colour through rather than draining it, so the green tiles
+ * still read as green through the glass.
+ *
+ * The tint alpha is set by one constraint: the wordmark stays legible over the
+ * worst backdrop the page can put under it. At 0.5 over a solid #0a0a0a tile the
+ * glass lands on #7c7c7a and the wordmark holds 4.73:1. Dark mode has the mirror
+ * problem — a white resume preview under a dark bar — where 0.5 would drop the
+ * text to ~3.4:1, so it runs heavier at 0.63.
+ *
+ * (An earlier pass warped the backdrop through an SVG displacement map for a
+ * refraction effect. It worked, and it read as a wobble along the bottom edge
+ * rather than as glass. Blur alone carries the illusion.)
+ */
+.glass-bar {
+  background-color: hsl(var(--background) / 0.5);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  backdrop-filter: saturate(180%) blur(16px);
+}
+
+.dark .glass-bar {
+  background-color: hsl(var(--background) / 0.63);
+}
+
+/*
+ * A specular hairline on the top face and a soft one under the bottom edge.
+ * Without them a translucent bar reads as a hole in the page rather than as a
+ * pane sitting over it.
+ */
+.glass-edge {
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.5),
+    inset 0 -1px 0 hsl(30 8% 55% / 0.18);
+}
+
+.dark .glass-edge {
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.07),
+    inset 0 -1px 0 hsl(0 0% 0% / 0.4);
+}
+
+/* Anyone who asked their system for less transparency gets the flat bar. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass-bar {
+    background-color: hsl(var(--background));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
