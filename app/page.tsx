@@ -8,6 +8,7 @@ import { TransformPreview } from '@/components/landing/transform-preview'
 import { Reveal } from '@/components/reveal'
 import { SiteFooterContent } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { AGENTS } from '@/lib/agents'
 
@@ -20,6 +21,7 @@ export default async function LandingPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader>
+        <ThemeToggle />
         <Button asChild variant="ghost" size="sm">
           <Link href={appHref}>{signedIn ? 'Dashboard' : 'Sign in'}</Link>
         </Button>

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Settings, User as UserIcon } from 'lucide-react'
+import { Home, Settings, User as UserIcon } from 'lucide-react'
 
 import { SignOutItem } from '@/components/auth/sign-out-item'
 import {
@@ -39,6 +39,14 @@ export function AccountMenu({
           {user.email}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {/* The wordmark goes to the dashboard once you are signed in, so without
+            this there is no route back out to the public page. */}
+        <DropdownMenuItem asChild>
+          <Link href="/">
+            <Home />
+            Home page
+          </Link>
+        </DropdownMenuItem>
         {showSettings ? (
           <DropdownMenuItem asChild>
             <Link href="/settings">

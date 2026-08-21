@@ -23,6 +23,11 @@ import { cn } from '@/lib/utils'
 const TILE =
   'group relative overflow-hidden rounded-xl border transition-all duration-300 hover:-translate-y-0.5'
 
+/**
+ * Rendered twice for the seamless scroll, so this list has to be TALLER than the
+ * panel it scrolls inside — otherwise the window spans the seam and the same job
+ * shows twice at once. Adding or removing entries here means re-checking that.
+ */
 const LOG_LINES = [
   '## cadence',
   '- Cut p99 840ms → 190ms',
@@ -34,6 +39,10 @@ const LOG_LINES = [
   '## opslevel',
   '- LLM-as-judge harness, 0-100',
   '- Prompt caching, 10x cheaper',
+  '## harvey-ai',
+  '- RAG eval suite, 12k docs',
+  '- Cut retrieval p95 60%',
+  '- Citations, 40k contracts',
 ]
 
 function Label({
@@ -63,7 +72,12 @@ export function FeatureGrid() {
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {/* 1 — the premise. Tall tile; the log does the explaining. */}
       <article
-        className={cn(TILE, 'stagger-item flex flex-col border-transparent bg-[#0f5a2e] p-6 lg:row-span-2')}
+        className={cn(
+          TILE,
+          // min-h-0 lets the log panel below scroll within whatever height the
+          // grid gives this tile, instead of its content dictating the height.
+          'stagger-item flex min-h-0 flex-col border-transparent bg-[#0f5a2e] p-6 lg:row-span-2',
+        )}
         style={{ '--stagger-index': 0 } as React.CSSProperties}
       >
         <Label icon={Sparkles} tone="light">
@@ -73,28 +87,51 @@ export function FeatureGrid() {
           Your agent writes it down.
         </h3>
 
-        <div className="mt-6 flex-1 rounded-lg bg-black/25 p-3.5 font-mono text-[10.5px] leading-[1.8] text-white/80">
-          <p className="text-white/40">~/.claude/resume-log.md</p>
-          {/* Enough lines that the panel reads as a real file rather than a
-              short list padded out to fill the tile. */}
-          {LOG_LINES.map((line, i) => (
-            <p
-              key={i}
-              className={cn(
-                'stagger-item truncate',
-                line.startsWith('##') && 'mt-2 text-white/40',
-              )}
-              style={
-                { '--stagger-index': i + 2, '--stagger-base': '220ms' } as React.CSSProperties
-              }
-            >
-              {line || '\u00a0'}
-            </p>
-          ))}
-          <p className="flex items-center gap-1 text-white/50">
-            <span>-</span>
-            <span className="animate-caret inline-block h-3 w-1.5 bg-white/60 align-middle" />
-          </p>
+        <div className="mt-6 flex min-h-[190px] flex-1 flex-col overflow-hidden rounded-lg bg-black/25 p-3.5 font-mono text-[10.5px] leading-[1.8] text-white/80">
+          {/* The filename sits in its own non-scrolling row. Previously it shared
+              a box with the animated list, which translated up past it and rode
+              over the text. */}
+          <p className="shrink-0 text-white/40">~/.claude/resume-log.md</p>
+
+          {/* The list is absolutely positioned so it contributes nothing to
+              intrinsic sizing. Grid `auto` rows size to max-content, so while it
+              was in flow the duplicated list inflated this row-span-2 tile — and
+              stretched its neighbours to match. */}
+          <div className="relative mt-1 min-h-0 flex-1 overflow-hidden">
+            {/* The list is rendered twice and scrolled by exactly -50%, so the
+                loop is seamless and the file looks like it is still being
+                appended to. */}
+            <div className="animate-log-tail absolute inset-x-0 top-0">
+              {[0, 1].map((copy) => (
+                <div key={copy} aria-hidden={copy === 1}>
+                  {LOG_LINES.map((line, i) => (
+                    <p
+                      key={`${copy}-${i}`}
+                      className={cn(
+                        'truncate',
+                        copy === 0 && 'stagger-item',
+                        line.startsWith('##') && 'mt-2 text-white/40',
+                      )}
+                      style={
+                        {
+                          '--stagger-index': i + 2,
+                          '--stagger-base': '220ms',
+                        } as React.CSSProperties
+                      }
+                    >
+                      {line || '\u00a0'}
+                    </p>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Fades the scroll in and out rather than letting lines pop at the
+                edges. #0b4423 is black/25 composited over the tile's #0f5a2e,
+                so the gradient matches the panel exactly. */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-5 bg-gradient-to-b from-[#0b4423] to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#0b4423] to-transparent" />
+          </div>
         </div>
       </article>
 
@@ -113,8 +150,8 @@ export function FeatureGrid() {
             {[100, 92, 96, 78].map((w, i) => (
               <div
                 key={i}
-                className="h-1 rounded-full bg-success/45 transition-colors duration-500 group-hover:bg-success/70"
-                style={{ width: `${w}%` }}
+                className="animate-bar h-1 rounded-full bg-success/45 transition-colors duration-500 group-hover:bg-success/70"
+                style={{ width: `${w}%`, '--stagger-index': i } as React.CSSProperties}
               />
             ))}
             <div className="h-1 w-2/3 rounded-full bg-muted-foreground/25" />
@@ -133,16 +170,21 @@ export function FeatureGrid() {
         <h3 className="mt-3 font-semibold leading-snug text-white">Speaks their language.</h3>
 
         <div className="mt-5 space-y-2 font-mono text-[11px]">
-          <p className="flex items-center gap-2 text-white/45">
-            <span className="line-through decoration-white/30">build pipelines</span>
-            <ArrowRight className="h-3 w-3 shrink-0 text-success" />
-            <span className="text-success">CI/CD</span>
-          </p>
-          <p className="flex items-center gap-2 text-white/45">
-            <span className="line-through decoration-white/30">Postgres</span>
-            <ArrowRight className="h-3 w-3 shrink-0 text-success" />
-            <span className="text-success">PostgreSQL</span>
-          </p>
+          {[
+            ['build pipelines', 'CI/CD'],
+            ['Postgres', 'PostgreSQL'],
+          ].map(([before, after], i) => (
+            <p key={after} className="flex items-center gap-2 text-white/45">
+              <span className="line-through decoration-white/30">{before}</span>
+              <ArrowRight className="h-3 w-3 shrink-0 text-success/70" />
+              <span
+                className="animate-swap text-success"
+                style={{ '--stagger-index': i } as React.CSSProperties}
+              >
+                {after}
+              </span>
+            </p>
+          ))}
         </div>
       </article>
 
@@ -161,7 +203,10 @@ export function FeatureGrid() {
             <p>\resumeSubheading</p>
             <p className="pl-2">{'{Senior Engineer}{2022 --}'}</p>
             <p className="pl-2 text-success/80">\resumeItem{'{Cut p99 840ms}'}</p>
-            <p>\resumeItemListEnd</p>
+            <p className="flex items-center gap-1">
+              \resumeItemListEnd
+              <span className="animate-caret inline-block h-2.5 w-1 bg-success/70 align-middle" />
+            </p>
           </div>
           <div className="space-y-1.5 bg-white p-3 font-serif text-[9.5px] leading-snug text-neutral-900">
             <p className="text-[8px] font-semibold uppercase tracking-[0.12em] text-neutral-500">
@@ -192,9 +237,27 @@ export function FeatureGrid() {
           <Label icon={Gauge} tone="light">
             Compiled, not previewed
           </Label>
-          <p className="mt-4 font-mono text-4xl font-semibold tracking-tight text-white">
-            552<span className="text-lg text-white/50">ms</span>
-          </p>
+          <div className="mt-4 flex items-center gap-3.5">
+            {/* The arc completes in 552ms of its cycle — the number, drawn. */}
+            <svg viewBox="0 0 64 64" className="h-11 w-11 shrink-0 -rotate-90" aria-hidden="true">
+              <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="6" />
+              <circle
+                className="animate-arc"
+                cx="32"
+                cy="32"
+                r="28"
+                fill="none"
+                stroke="hsl(142 60% 52%)"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeDasharray="176"
+                strokeDashoffset="176"
+              />
+            </svg>
+            <p className="font-mono text-4xl font-semibold tracking-tight text-white">
+              552<span className="text-lg text-white/50">ms</span>
+            </p>
+          </div>
           <p className="mt-2 text-sm text-white/60">Real TeX. Download that exact PDF.</p>
         </div>
       </article>
@@ -208,24 +271,24 @@ export function FeatureGrid() {
         <h3 className="mt-3 font-semibold leading-snug">Swap in your own any time.</h3>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          {[
-            { name: 'Gemini 3.6 Flash', active: true },
-            { name: 'Claude Sonnet 5', active: false },
-            { name: 'Claude Opus 5', active: false },
-            { name: 'Gemini Pro', active: false },
-          ].map((model) => (
-            <span
-              key={model.name}
-              className={cn(
-                'rounded-full border px-3 py-1 font-mono text-[11px] transition-colors duration-300',
-                model.active
-                  ? 'border-success/40 bg-success/10 text-success'
-                  : 'border-border text-muted-foreground group-hover:border-foreground/20',
-              )}
-            >
-              {model.name}
-            </span>
-          ))}
+          {['Gemini 3.6 Flash', 'Claude Sonnet 5', 'Claude Opus 5', 'Gemini Pro'].map(
+            (name, i) => (
+              <span
+                key={name}
+                className={cn(
+                  'animate-chip rounded-full border px-3 py-1 font-mono text-[11px]',
+                  // Resting state is the first chip selected, which is also
+                  // where the animation returns to under reduced motion.
+                  i === 0
+                    ? 'border-success/40 bg-success/10 text-success'
+                    : 'border-border text-muted-foreground',
+                )}
+                style={{ '--stagger-index': i } as React.CSSProperties}
+              >
+                {name}
+              </span>
+            ),
+          )}
         </div>
       </article>
     </div>
