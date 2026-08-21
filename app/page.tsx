@@ -69,8 +69,10 @@ export default async function LandingPage() {
         <section className="border-t border-border">
           <div className="mx-auto max-w-5xl px-6 py-24 sm:py-28">
             <Reveal>
-              <h2 className="text-display-sm max-w-lg">
-                Set it up once, then forget about it.
+              <h2 className="text-display-sm">
+                Set it up once,
+                <br />
+                then forget about it.
               </h2>
               <p className="mt-4 max-w-readable text-sm leading-relaxed text-muted-foreground">
                 Paste one instruction into your agent. Everything after that is Cadence&apos;s job.
