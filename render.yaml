@@ -22,8 +22,6 @@ services:
         sync: false
       - key: DATABASE_URL_UNPOOLED
         sync: false
-      - key: GEMINI_API_KEY
-        sync: false
       - key: BYOK_ENCRYPTION_KEY
         sync: false
       - key: UPSTASH_REDIS_REST_URL

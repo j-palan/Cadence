@@ -44,7 +44,7 @@ const FAQS: Faq[] = [
   },
   {
     q: 'Where does my log actually go?',
-    a: "To a language model, to be turned into a resume. By default that's Google's Gemini API on our key — and Google's free tier may use submitted content to improve their models, which is worth knowing before you paste anything sensitive. Add your own API key in Settings and your content goes to your provider under your agreement instead. Keys are encrypted before storage and never sent back to the browser.",
+    a: 'To the language-model provider you connect during onboarding or in Settings. Cadence has no shared model key. Your provider key is encrypted before storage and never sent back to the browser; your log and resume text are handled under the agreement you have with that provider.',
   },
   {
     q: 'What happens if I stop using it?',

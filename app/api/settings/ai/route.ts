@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
-import { PROVIDERS, isValidPair, modelsFor, type ProviderId } from '@/lib/ai/catalog'
+import { PROVIDERS, isValidPair } from '@/lib/ai/catalog'
+import { parseBaseUrl } from '@/lib/ai/endpoint'
 import { encryptSecret, keyHint } from '@/lib/ai/crypto'
 import { verifyCredentials } from '@/lib/ai/providers'
 import {
@@ -18,9 +19,10 @@ export const maxDuration = 60
 
 const saveSchema = z.object({
   provider: z.enum(PROVIDERS),
-  model: z.string().min(1).max(120),
+  model: z.string().trim().min(1).max(120),
+  baseUrl: z.string().trim().max(2000).optional(),
   // Long enough for any provider's format; the provider is the real validator.
-  apiKey: z.string().trim().min(16).max(400),
+  apiKey: z.string().trim().min(1).max(4096),
 })
 
 const patchSchema = z.union([
@@ -52,7 +54,15 @@ export async function POST(request: Request) {
     )
   }
 
-  const check = await verifyCredentials(provider, model, apiKey)
+  let baseUrl: string | null = null
+  if (provider === 'other') {
+    try {
+      baseUrl = parseBaseUrl(parsed.data.baseUrl ?? '').toString().replace(/\/$/, '')
+    } catch {
+      return NextResponse.json({ error: 'Enter a public HTTPS API base URL without query parameters or credentials.' }, { status: 400 })
+    }
+  }
+  const check = await verifyCredentials(provider, model, apiKey, baseUrl ?? undefined)
   if (!check.ok) {
     return NextResponse.json({ error: check.message }, { status: 400 })
   }
@@ -60,15 +70,16 @@ export async function POST(request: Request) {
   const saved = await saveAiCredentials(session.user.id, {
     provider,
     model,
+    baseUrl,
     keyCipher: encryptSecret(apiKey),
     keyHint: keyHint(apiKey),
   })
   if (!saved) return NextResponse.json({ error: 'Not found.' }, { status: 404 })
 
-  return NextResponse.json({ enabled: true, provider, model, keyHint: keyHint(apiKey) })
+  return NextResponse.json({ enabled: true, provider, model, baseUrl, keyHint: keyHint(apiKey) })
 }
 
-/** Toggle own-key generation on or off, or switch model within the provider. */
+/** Toggle generation on or off, or switch model within the stored provider. */
 export async function PATCH(request: Request) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 })
@@ -92,8 +103,8 @@ export async function PATCH(request: Request) {
 
   // A model switch must stay within the provider the stored key belongs to —
   // an Anthropic key cannot drive a Gemini model.
-  const provider = existing.provider as ProviderId | null
-  if (!provider || !modelsFor(provider).some((m) => m.id === body.model)) {
+  const provider = existing.provider
+  if (!provider || !isValidPair(provider, body.model)) {
     return NextResponse.json(
       { error: 'That model does not match the provider your key is for.' },
       { status: 400 },
@@ -104,7 +115,7 @@ export async function PATCH(request: Request) {
   return NextResponse.json({ model: body.model })
 }
 
-/** Forget the key entirely. Generation reverts to Cadence's default. */
+/** Forget the key entirely. AI generation is disabled until a new key is saved. */
 export async function DELETE() {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 })

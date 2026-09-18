@@ -239,7 +239,7 @@ Database sessions (not JWT) so sign-out and account deletion take effect immedia
 | `/` | Landing page (hero, how it works, agent logos, CTA) |
 | `/login` | Single "Continue with Google" button |
 | `/api/auth/*` | Auth.js handlers (Google redirect + callback) |
-| `/onboarding` | 3-step wizard; gated: redirect here after first login if `users.onboarded = false` |
+| `/onboarding` | Agent setup plus optional user API-key wizard; gated: redirect here after first login if `users.onboarded = false` |
 | `/dashboard` | Resume cards grid; "New Resume" button |
 | `/resume/new` | Log import page → triggers generation → redirects to editor |
 | `/resume/[id]` | Split-pane editor (CodeMirror + iframe preview) |
@@ -310,7 +310,7 @@ Tab per selected agent. Shows the exact snippet to paste into their config file,
   3. "Generate Resume" → POST /api/generate
      - Body: { log: string, template: string, existingHtml?: string }
      - userId comes from `await auth()`, never from the body
-     - Upstash rate limit checked before the Claude call
+     - Upstash rate limit checked before the model-provider call
      - Streams Claude response back
      - On complete: INSERT into resumes, INSERT into log_imports (both scoped to userId)
      - Redirect to /resume/[id]

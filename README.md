@@ -25,9 +25,9 @@ Without go-task, the equivalent is `npm install && npm run pdf:worker &&
 npm run db:migrate && npm run tex:warm && npm run dev`.
 
 The detail behind each step is below. Only **Node**, **a Postgres database**, and
-**a LaTeX engine** are actually required — Google OAuth, the Gemini key, and
-Upstash all degrade gracefully so you can get the app on screen first and add
-them as you need them.
+**a LaTeX engine** are required to boot. Users can add their own AI provider key
+during onboarding when they want generation; the editor and PDF compiler work
+without one.
 
 ---
 
@@ -38,7 +38,7 @@ them as you need them.
 | **Node 20+** | Next.js 14 | Built and tested on Node 22 |
 | **A LaTeX engine** | Compiling resumes to PDF | `brew install tectonic` — one ~30MB binary that downloads only the packages a document uses. An existing TeX Live / MacTeX install works too; Cadence falls back to `pdflatex`. |
 | **A Postgres database** | Users, resumes, logs | A free [Neon](https://neon.tech) project is the path of least resistance — it is serverless, so there is nothing to run locally. |
-| **A Gemini API key** | Generating a resume from a log (users can also bring their own — see below) | Optional, and free — get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). Without it the editor works fine; only generation is unavailable. |
+| **A user-supplied AI API key** | Generating, updating, or tailoring a resume | Optional. Onboarding supports Gemini, Anthropic, OpenAI, and providers with an OpenAI-compatible Chat Completions API. Without a key, editing and PDF export still work. |
 
 ### On the LaTeX engine
 
@@ -99,11 +99,8 @@ DATABASE_URL=           # pooled   — the app at runtime
 DATABASE_URL_UNPOOLED=  # direct   — drizzle-kit migrations
 ```
 
-Add your Gemini key when you want resume generation (the free tier is enough):
-
-```bash
-GEMINI_API_KEY=         # aistudio.google.com/apikey
-```
+There is no shared model key to configure. Each user can add a provider key
+during onboarding or under Settings → **Model**.
 
 ### 4. Create the tables
 
@@ -157,14 +154,13 @@ what is missing when they are not.
 Sessions live in the database rather than a JWT, so signing out and deleting an
 account take effect immediately instead of waiting for a token to expire.
 
-## Bringing your own model
+## Connecting an AI model
 
-Generation runs on the server's Gemini key by default. Settings → **Model** lets
-a user store their own provider key and pick any model in the catalog
-(`lib/ai/catalog.ts` — Gemini and Anthropic today). It can be switched off at any
-time, which reverts to the default without discarding the key, or removed
-entirely. The settings card always names the model actually in use and whose key
-is paying for it.
+Cadence has no shared API key. During onboarding or under Settings → **Model**,
+a user can connect Gemini, Anthropic, OpenAI, or another provider that implements
+the streaming OpenAI Chat Completions format. A key can be switched off without
+discarding it, or removed entirely. AI generation stays disabled until the user
+has an enabled, verified key.
 
 How keys are handled:
 
@@ -175,19 +171,19 @@ How keys are handled:
 - **Never returned to the browser.** The client only ever receives the last four
   characters. `getAiSettingsForClient` is the only reader a page may call;
   `getAiCredentials` returns ciphertext and is server-only.
-- **Never silently redirected.** Cadence retries its own default key across
-  fallback models when the free tier is busy, but a user's own key only ever runs
-  the model they chose — it is their bill.
+- **Never silently redirected.** A request only runs the provider and model the
+  user selected. Retries use that same model.
 
 ## Using it
 
-1. **Onboarding** picks your agents and hands you the snippet for each. Paste it
+1. **Onboarding** picks your agents, hands you the snippet for each, and optionally
+   connects your AI provider. Paste each snippet
    into the config file shown (`~/.claude/CLAUDE.md`, `.cursor/rules/`,
    `.github/copilot-instructions.md`, …). Claude Code, Cursor, Copilot,
    Windsurf, Cline, and Aider are covered.
 2. **Go code.** Your agent appends to `~/cadence-log.md` as you ship.
 3. **New resume** → paste the log (or open the file directly, in Chromium) →
-   *Generate from log*. Claude drafts the LaTeX, streaming as it goes. Or
+   *Generate from log*. Your chosen model drafts the LaTeX, streaming as it goes. Or
    *Skip — edit the template myself* to go straight to Jake's Resume.
 4. **The editor** autosaves 1.5s after you stop typing and recompiles shortly
    after. `⌘S` does both immediately. Compiler errors arrive with line numbers,
@@ -247,14 +243,14 @@ Underlying npm scripts, if you prefer them or don't have go-task:
 app/
   (auth)/login/          Google sign-in
   (app)/                 Protected: layout runs `await auth()` and gates onboarding
-    onboarding/          3-step wizard
+    onboarding/          Agent setup and optional AI-provider wizard
     dashboard/           Resume cards
     resume/new/          Log import → generate
     resume/[id]/         The LaTeX editor
     settings/            Account, agent snippets, deletion
   api/
     auth/[...nextauth]/  Auth.js handlers (Google redirect + callback)
-    generate/            POST: log → Gemini → LaTeX (streamed); 3 modes
+    generate/            POST: log → chosen model → LaTeX (streamed); 3 modes
     compile/             POST: LaTeX → PDF (Tectonic / pdflatex)
     resumes/             POST create from template; PATCH/DELETE by id
     account/             DELETE: cascades to everything
@@ -266,8 +262,8 @@ lib/
   ai/
     catalog.ts           Supported providers and models (isomorphic)
     crypto.ts            AES-256-GCM for user-supplied API keys
-    engine.ts            Resolves own-key vs. default per request
-    providers.ts         One streaming interface over Gemini and Anthropic
+    engine.ts            Resolves the user's verified provider credentials
+    providers.ts         Streaming interface over Gemini, Anthropic, OpenAI, and compatible APIs
   templates/jake.tex     The resume template
   agents.ts              Per-agent snippets and config paths
 ```

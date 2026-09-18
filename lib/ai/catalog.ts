@@ -7,7 +7,7 @@
  * A wrong ID here surfaces as a 404 the user cannot fix, so do not guess.
  */
 
-export const PROVIDERS = ['gemini', 'anthropic'] as const
+export const PROVIDERS = ['gemini', 'anthropic', 'openai', 'other'] as const
 
 export type ProviderId = (typeof PROVIDERS)[number]
 
@@ -15,11 +15,19 @@ export interface ProviderMeta {
   id: ProviderId
   label: string
   /** Where a user goes to get a key. */
-  keyUrl: string
+  keyUrl?: string
   keyHint: string
 }
 
 export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
+  openai: {
+    id: 'openai', label: 'OpenAI', keyUrl: 'https://platform.openai.com/api-keys',
+    keyHint: 'Use an OpenAI API key and a Chat Completions model available to your account.',
+  },
+  other: {
+    id: 'other', label: 'Other (OpenAI-compatible)',
+    keyHint: 'Use a key from your provider. Its API must support streaming Chat Completions.',
+  },
   gemini: {
     id: 'gemini',
     label: 'Google Gemini',
@@ -47,7 +55,7 @@ export const MODELS: ModelMeta[] = [
     id: 'gemini-3.6-flash',
     provider: 'gemini',
     label: 'Gemini 3.6 Flash',
-    note: 'Fast and cheap. What Cadence uses by default.',
+    note: 'Fast and cheap.',
   },
   {
     id: 'gemini-3.7-flash',
@@ -97,6 +105,7 @@ export function findModel(id: string): ModelMeta | undefined {
 }
 
 export function isValidPair(provider: string, model: string): provider is ProviderId {
+  if (provider === 'openai' || provider === 'other') return model.trim().length > 0 && model.length <= 120
   return MODELS.some((m) => m.provider === provider && m.id === model)
 }
 

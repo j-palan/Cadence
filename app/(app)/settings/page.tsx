@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 
 import { AgentSnippet } from '@/components/onboarding/agent-snippet'
+import { OnboardingWizard } from '@/components/onboarding/wizard'
 import { Appearance } from '@/components/settings/appearance'
 import { ModelSettings } from '@/components/settings/model-settings'
 import { DeleteAccount } from '@/components/settings/delete-account'
@@ -9,13 +10,16 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AGENTS, LOG_PATH } from '@/lib/agents'
-import { DEFAULT_MODEL } from '@/lib/ai/engine'
 import { requireOnboardedUser } from '@/lib/auth-guards'
 import { countResumes, getAiSettingsForClient, getUser } from '@/lib/db/queries'
 
 export const metadata: Metadata = { title: 'Settings' }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: { tab?: string }
+}) {
   const sessionUser = await requireOnboardedUser()
 
   const [user, resumeCount, aiSettings] = await Promise.all([
@@ -36,7 +40,38 @@ export default async function SettingsPage() {
         <p className="mt-3 text-sm text-muted-foreground">Account, agents, and data.</p>
       </div>
 
-      <Card>
+      <Tabs defaultValue={searchParams.tab === 'onboarding' ? 'onboarding' : 'general'}>
+        <TabsList>
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
+        </TabsList>
+        <TabsContent value="onboarding">
+          <Card>
+            <CardHeader>
+              <CardTitle>Revisit onboarding</CardTitle>
+              <CardDescription>
+                Run through setup again. Saved API keys and agent choices apply to your account.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <OnboardingWizard
+                initialAgents={user.agents}
+                aiSettings={
+                  aiSettings ?? {
+                    enabled: false,
+                    provider: null,
+                    model: null,
+                    keyHint: null,
+                    baseUrl: null,
+                  }
+                }
+                revisiting
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="general" className="space-y-6">
+          <Card>
         <CardHeader>
           <CardTitle>Appearance</CardTitle>
           <CardDescription>Cadence opens in light mode by default.</CardDescription>
@@ -44,9 +79,9 @@ export default async function SettingsPage() {
         <CardContent>
           <Appearance />
         </CardContent>
-      </Card>
+          </Card>
 
-      <Card>
+          <Card>
         <CardHeader>
           <CardTitle>Account</CardTitle>
           <CardDescription>Signed in with Google. There is no password to manage.</CardDescription>
@@ -64,14 +99,13 @@ export default async function SettingsPage() {
           />
           <Row label="Resumes" value={String(resumeCount)} />
         </CardContent>
-      </Card>
+          </Card>
 
-      <Card>
+          <Card>
         <CardHeader>
           <CardTitle>Model</CardTitle>
           <CardDescription>
-            Cadence generates with its own key by default. Add your own to use a different model,
-            and switch it off any time to go back.
+            Add your own API key to use AI generation. You can edit and compile resumes without one.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -81,13 +115,13 @@ export default async function SettingsPage() {
               provider: aiSettings?.provider ?? null,
               model: aiSettings?.model ?? null,
               keyHint: aiSettings?.keyHint ?? null,
+              baseUrl: aiSettings?.baseUrl ?? null,
             }}
-            defaultModel={DEFAULT_MODEL}
           />
         </CardContent>
-      </Card>
+          </Card>
 
-      <Card>
+          <Card>
         <CardHeader>
           <CardTitle>Your agents</CardTitle>
           <CardDescription>
@@ -115,9 +149,9 @@ export default async function SettingsPage() {
             </Tabs>
           )}
         </CardContent>
-      </Card>
+          </Card>
 
-      <Card className="border-destructive/30">
+          <Card className="border-destructive/30">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Danger zone
@@ -132,7 +166,9 @@ export default async function SettingsPage() {
         <CardContent>
           <DeleteAccount email={user.email} />
         </CardContent>
-      </Card>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </main>
   )
 }

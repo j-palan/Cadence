@@ -54,6 +54,7 @@ export async function completeOnboarding(userId: string, agents: string[]): Prom
 export async function getAiCredentials(userId: string): Promise<{
   enabled: boolean
   provider: string | null
+  baseUrl: string | null
   model: string | null
   keyCipher: string | null
 } | null> {
@@ -62,6 +63,7 @@ export async function getAiCredentials(userId: string): Promise<{
       enabled: users.byokEnabled,
       provider: users.byokProvider,
       model: users.byokModel,
+      baseUrl: users.byokBaseUrl,
       keyCipher: users.byokKeyCipher,
     })
     .from(users)
@@ -74,6 +76,7 @@ export async function getAiCredentials(userId: string): Promise<{
 export async function getAiSettingsForClient(userId: string): Promise<{
   enabled: boolean
   provider: string | null
+  baseUrl: string | null
   model: string | null
   keyHint: string | null
   verifiedAt: Date | null
@@ -83,6 +86,7 @@ export async function getAiSettingsForClient(userId: string): Promise<{
       enabled: users.byokEnabled,
       provider: users.byokProvider,
       model: users.byokModel,
+      baseUrl: users.byokBaseUrl,
       keyHint: users.byokKeyHint,
       verifiedAt: users.byokVerifiedAt,
     })
@@ -97,6 +101,7 @@ export async function saveAiCredentials(
   input: {
     provider: string
     model: string
+    baseUrl: string | null
     keyCipher: string
     keyHint: string
   },
@@ -107,6 +112,7 @@ export async function saveAiCredentials(
       byokEnabled: true,
       byokProvider: input.provider,
       byokModel: input.model,
+      byokBaseUrl: input.baseUrl,
       byokKeyCipher: input.keyCipher,
       byokKeyHint: input.keyHint,
       byokVerifiedAt: new Date(),
@@ -143,6 +149,7 @@ export async function clearAiCredentials(userId: string): Promise<boolean> {
       byokEnabled: false,
       byokProvider: null,
       byokModel: null,
+      byokBaseUrl: null,
       byokKeyCipher: null,
       byokKeyHint: null,
       byokVerifiedAt: null,
