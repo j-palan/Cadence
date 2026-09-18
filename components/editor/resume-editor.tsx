@@ -12,6 +12,7 @@ import {
   Download,
   FileText,
   Loader2,
+  MessageCircle,
   Play,
   ScrollText,
   Sparkles,
@@ -22,6 +23,10 @@ import { GeneratingOverlay } from '@/components/generating-overlay'
 import { ApiKeyDialog, hasEnabledAi } from '@/components/ai/api-key-dialog'
 import { EditorBoundary } from '@/components/editor/editor-boundary'
 import { PdfPane } from '@/components/editor/pdf-pane'
+import {
+  ResumeChatDialog,
+  type ResumeChatMessage,
+} from '@/components/editor/resume-chat-dialog'
 import { TailorDialog } from '@/components/editor/tailor-dialog'
 import { UpdateDialog } from '@/components/editor/update-dialog'
 import { Badge } from '@/components/ui/badge'
@@ -99,6 +104,10 @@ export function ResumeEditor({
   const [jumpTarget, setJumpTarget] = useState<{ line: number; request: number } | null>(null)
   const [aiSettings, setAiSettings] = useState(initialAiSettings)
   const [apiKeyOpen, setApiKeyOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatPending, setChatPending] = useState(false)
+  const [chatMessages, setChatMessages] = useState<ResumeChatMessage[]>([])
+  const [undoSource, setUndoSource] = useState<string | null>(null)
 
   const router = useRouter()
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -393,7 +402,114 @@ export function ResumeEditor({
     }
   }
 
-  const busy = compileState === 'compiling' || regenerating
+  async function runChatEdit(instruction: string) {
+    if (!hasEnabledAi(aiSettings)) {
+      setChatOpen(false)
+      setApiKeyOpen(true)
+      return
+    }
+
+    const before = sourceRef.current
+    const messageId = Date.now()
+    setChatMessages((messages) => [
+      ...messages,
+      { id: messageId, role: 'user', text: instruction },
+    ])
+    setChatPending(true)
+    setNotice(null)
+    clearTimeout(saveTimer.current)
+
+    try {
+      const response = await fetch(`/api/resumes/${resume.id}/edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instruction, source: before }),
+      })
+      const body = (await response.json().catch(() => null)) as {
+        source?: string
+        message?: string
+        editCount?: number
+        error?: string
+        code?: string
+      } | null
+
+      if (!response.ok || !body?.source) {
+        if (body?.code === 'API_KEY_REQUIRED') {
+          setAiSettings((current) => ({ ...current, enabled: false }))
+          setChatOpen(false)
+          setApiKeyOpen(true)
+          return
+        }
+        throw new Error(body?.error ?? `AI edit failed (${response.status})`)
+      }
+
+      setUndoSource(before)
+      setSource(body.source)
+      sourceRef.current = body.source
+      pendingRef.current = null
+      setSaveState('saved')
+      setStale(false)
+      setChatMessages((messages) => [
+        ...messages,
+        {
+          id: messageId + 1,
+          role: 'assistant',
+          text: body.message ?? `Applied ${body.editCount ?? 1} targeted edit${body.editCount === 1 ? '' : 's'}.`,
+        },
+      ])
+      await compile()
+    } catch (error) {
+      setChatMessages((messages) => [
+        ...messages,
+        {
+          id: messageId + 1,
+          role: 'error',
+          text: error instanceof Error ? error.message : 'The edit could not be applied.',
+        },
+      ])
+    } finally {
+      setChatPending(false)
+    }
+  }
+
+  async function undoChatEdit() {
+    if (!undoSource || chatPending) return
+    const previous = undoSource
+    setChatPending(true)
+
+    try {
+      const response = await fetch(`/api/resumes/${resume.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ latexSource: previous }),
+      })
+      if (!response.ok) throw new Error('Could not restore the previous version.')
+
+      setSource(previous)
+      sourceRef.current = previous
+      pendingRef.current = null
+      setUndoSource(null)
+      setSaveState('saved')
+      setChatMessages((messages) => [
+        ...messages,
+        { id: Date.now(), role: 'assistant', text: 'Restored the resume from before the last AI edit.' },
+      ])
+      await compile()
+    } catch (error) {
+      setChatMessages((messages) => [
+        ...messages,
+        {
+          id: Date.now(),
+          role: 'error',
+          text: error instanceof Error ? error.message : 'Could not undo the edit.',
+        },
+      ])
+    } finally {
+      setChatPending(false)
+    }
+  }
+
+  const busy = compileState === 'compiling' || regenerating || chatPending
 
   return (
     <div className="flex h-[calc(100dvh-4rem-1px)] flex-col">
@@ -421,6 +537,17 @@ export function ResumeEditor({
         <SaveIndicator state={saveState} />
 
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => hasEnabledAi(aiSettings) ? setChatOpen(true) : setApiKeyOpen(true)}
+            disabled={busy}
+            title="Describe a targeted change to this resume"
+          >
+            <MessageCircle />
+            <span className="hidden md:inline">Ask AI</span>
+          </Button>
+
           <Button
             variant="ghost"
             size="sm"
@@ -561,6 +688,16 @@ export function ResumeEditor({
         }
         pending={regenerating}
         error={tailorError}
+      />
+
+      <ResumeChatDialog
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        messages={chatMessages}
+        pending={chatPending}
+        canUndo={undoSource !== null}
+        onSubmit={(instruction) => void runChatEdit(instruction)}
+        onUndo={() => void undoChatEdit()}
       />
 
       <Dialog open={logOpen} onOpenChange={setLogOpen}>
