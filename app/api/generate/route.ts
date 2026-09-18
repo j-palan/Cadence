@@ -114,7 +114,7 @@ export async function POST(request: Request) {
     )
   }
 
-  // Rate limit before the Claude call — this is the route that costs money.
+  // Rate limit before the provider call — this is the route that costs money.
   const limit = await limitGenerate(userId)
   if (!limit.success) {
     return NextResponse.json(
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
     )
   }
 
-  // Own key if the user configured one, otherwise Cadence's default.
+  // Generation requires the signed-in user’s own enabled API key.
   let engine
   try {
     engine = await resolveEngine(userId)

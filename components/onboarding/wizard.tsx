@@ -5,14 +5,21 @@ import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
 
 import { finishOnboarding } from '@/app/(onboard)/onboarding/actions'
 import { AgentSnippet } from '@/components/onboarding/agent-snippet'
+import { ModelSettings, type ModelSettingsProps } from '@/components/settings/model-settings'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AGENTS, LOG_PATH } from '@/lib/agents'
 import { cn } from '@/lib/utils'
 
-const STEPS = ['Agents', 'Instruction', 'Done'] as const
+const STEPS = ['Agents', 'Instruction', 'AI model', 'Done'] as const
 
-export function OnboardingWizard({ initialAgents }: { initialAgents: string[] }) {
+export function OnboardingWizard({ initialAgents, aiSettings, revisiting = false }: {
+  initialAgents: string[]
+  aiSettings: ModelSettingsProps['settings']
+  revisiting?: boolean
+}) {
+  const [currentAi, setCurrentAi] = useState(aiSettings)
+  const [aiBusy, setAiBusy] = useState(false)
   const [step, setStep] = useState(0)
   const [selected, setSelected] = useState<string[]>(initialAgents)
   const [error, setError] = useState<string | null>(null)
@@ -37,7 +44,7 @@ export function OnboardingWizard({ initialAgents }: { initialAgents: string[] })
 
   function finish() {
     startTransition(async () => {
-      const result = await finishOnboarding(selected)
+      const result = await finishOnboarding(selected, revisiting)
       if (result?.error) setError(result.error)
     })
   }
@@ -143,6 +150,24 @@ export function OnboardingWizard({ initialAgents }: { initialAgents: string[] })
       ) : null}
 
       {step === 2 ? (
+        <section className="animate-fade-up space-y-6">
+          <div className="space-y-2">
+            <h1 className="text-display-sm">Connect your AI model</h1>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Add your own API key to generate, update, and tailor resumes. Choose Gemini,
+              Anthropic, OpenAI, or another compatible provider below. You can skip this step and
+              add a key later in Settings → Model; editing and PDF export work without one.
+            </p>
+          </div>
+          <ModelSettings
+            settings={currentAi}
+            onBusyChange={setAiBusy}
+            onSettingsChange={setCurrentAi}
+          />
+        </section>
+      ) : null}
+
+      {step === 3 ? (
         <section className="animate-fade-up space-y-4">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-success/12 text-success">
             <Check className="h-4 w-4" strokeWidth={3} />
@@ -163,21 +188,21 @@ export function OnboardingWizard({ initialAgents }: { initialAgents: string[] })
           variant="ghost"
           size="sm"
           onClick={() => setStep((c) => Math.max(c - 1, 0))}
-          disabled={step === 0 || pending}
+          disabled={step === 0 || pending || aiBusy}
         >
           <ArrowLeft />
           Back
         </Button>
 
         {step < STEPS.length - 1 ? (
-          <Button size="sm" onClick={next}>
-            Continue
+          <Button size="sm" onClick={next} disabled={aiBusy}>
+            {step === 2 && !(currentAi.enabled && currentAi.keyHint) ? 'Skip for now' : 'Continue'}
             <ArrowRight />
           </Button>
         ) : (
           <Button size="sm" onClick={finish} disabled={pending}>
             {pending ? <Loader2 className="animate-spin" /> : null}
-            Go to dashboard
+            {revisiting ? 'Save and return to settings' : 'Go to dashboard'}
             {pending ? null : <ArrowRight />}
           </Button>
         )}

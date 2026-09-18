@@ -89,16 +89,6 @@ function buildUserMessage(input: GenerateResumeInput): string {
 }
 
 /**
- * Fallback models, tried only when the request is running on Cadence's own key.
- *
- * A user's own key is never silently redirected to a different model — they
- * chose it, and it is their bill. The free Gemini tier, by contrast, returns
- * 503 often enough that a second choice is the difference between a working
- * feature and an intermittent one.
- */
-const DEFAULT_FALLBACKS = ['gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-flash-latest']
-
-/**
  * Stream a generated LaTeX resume as plain text chunks.
  *
  * The caller strips code fences from the assembled result — a fence cannot be
@@ -110,7 +100,7 @@ export async function* streamResumeSource(
 ): AsyncGenerator<string, void, unknown> {
   const system = SYSTEM_PROMPTS[input.mode]
   const user = buildUserMessage(input)
-  const models = engine.ownKey ? [engine.model] : [...new Set([engine.model, ...DEFAULT_FALLBACKS])]
+  const models = [engine.model]
 
   let lastError: unknown = null
 
@@ -125,6 +115,7 @@ export async function* streamResumeSource(
           provider: engine.provider,
           model,
           apiKey: engine.apiKey,
+          baseUrl: engine.baseUrl,
           system,
           user,
           maxTokens: MAX_TOKENS,
@@ -136,7 +127,6 @@ export async function* streamResumeSource(
         }
 
         if (!committed) throw new EmptyResponseError()
-        if (model !== engine.model) console.warn(`[generate] served by fallback model ${model}`)
         return
       } catch (error) {
         if (committed) throw error
@@ -147,7 +137,7 @@ export async function* streamResumeSource(
         if (!retryable) throw error
 
         if (attempt === MAX_ATTEMPTS - 1) {
-          console.warn(`[generate] ${model} unavailable; moving on`)
+          console.warn(`[generate] ${model} unavailable after retries`)
           break
         }
         await sleep(BASE_BACKOFF_MS * 2 ** attempt)
@@ -160,7 +150,7 @@ export async function* streamResumeSource(
 
 /** Maps errors onto a status code and a message safe to show a user. */
 export function describeGenerationError(error: unknown): { status: number; message: string } {
-  if (error instanceof NoCredentialsError) return { status: 503, message: error.message }
+  if (error instanceof NoCredentialsError) return { status: 409, message: error.message }
   if (error instanceof BlockedError) return { status: 422, message: error.message }
   if (error instanceof EmptyResponseError) {
     return { status: 502, message: 'The model returned nothing. Try again.' }

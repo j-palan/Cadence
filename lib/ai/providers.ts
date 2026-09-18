@@ -3,6 +3,9 @@ import 'server-only'
 import Anthropic from '@anthropic-ai/sdk'
 import { ApiError, GoogleGenAI } from '@google/genai'
 
+import { postChat } from './endpoint'
+import { readChatStream } from './chat-stream'
+
 import type { ProviderId } from './catalog'
 
 /**
@@ -16,6 +19,7 @@ export interface StreamRequest {
   provider: ProviderId
   model: string
   apiKey: string
+  baseUrl?: string
   system: string
   user: string
   maxTokens: number
@@ -154,8 +158,49 @@ function translateAnthropic(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
 }
 
+async function* streamCompatible(input: StreamRequest): AsyncGenerator<string> {
+  const baseUrl = input.provider === 'openai' ? 'https://api.openai.com/v1' : input.baseUrl
+  if (!baseUrl) throw new ProviderError('Add an API base URL in Settings → Model.', 400)
+  let response
+  try {
+    response = await postChat(baseUrl, input.apiKey, {
+      model: input.model,
+      messages: [{ role: 'system', content: input.system }, { role: 'user', content: input.user }],
+      stream: true,
+      ...(input.provider === 'openai'
+        ? { max_completion_tokens: input.maxTokens, store: false }
+        : { max_tokens: input.maxTokens }),
+    })
+  } catch {
+    throw new ProviderError('Could not connect to the AI provider. Check the API base URL and try again.', 502)
+  }
+  try {
+    const status = response.statusCode ?? 502
+    if (status < 200 || status >= 300) {
+      if (status === 401 || status === 403) throw new ProviderError('That API key was rejected. Check its permissions and billing.', 400)
+      if (status === 429) throw new ProviderError('Provider quota or rate limit reached. Check billing or try again shortly.', 429, true)
+      if (status >= 500) throw new ProviderError('The AI provider is unavailable right now.', 503, true)
+      throw new ProviderError('The provider rejected the request. Check the model ID and API base URL.', 400)
+    }
+    try {
+      yield* readChatStream(response)
+    } catch (error) {
+      if (error instanceof ProviderError || error instanceof BlockedError) throw error
+      if (error instanceof Error && error.message.includes('declined this request')) {
+        throw new BlockedError('provider refusal')
+      }
+      throw new ProviderError('The AI provider returned an invalid or incomplete response.', 502)
+    }
+  } finally {
+    response.destroy()
+  }
+}
+
 export function streamFrom(request: StreamRequest): AsyncGenerator<string> {
   switch (request.provider) {
+    case 'openai':
+    case 'other':
+      return streamCompatible(request)
     case 'anthropic':
       return streamAnthropic(request)
     case 'gemini':
@@ -174,12 +219,14 @@ export async function verifyCredentials(
   provider: ProviderId,
   model: string,
   apiKey: string,
+  baseUrl?: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
     const stream = streamFrom({
       provider,
       model,
       apiKey,
+      baseUrl,
       system: 'Reply with the single word OK.',
       user: 'Reply with the single word OK.',
       maxTokens: 512,

@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "byok_base_url" text;

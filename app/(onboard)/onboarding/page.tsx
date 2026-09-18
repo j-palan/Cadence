@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 
 import { OnboardingWizard } from '@/components/onboarding/wizard'
+import { getAiSettingsForClient } from '@/lib/db/queries'
 import { requireUser } from '@/lib/auth-guards'
 
 export const metadata: Metadata = { title: 'Get set up' }
@@ -14,9 +15,11 @@ export default async function OnboardingPage() {
   // `!onboarded`, exactly one of the two redirects can ever fire.
   if (user.onboarded) redirect('/dashboard')
 
+  const settings = await getAiSettingsForClient(user.id)
+
   return (
     <main className="mx-auto max-w-2xl px-6 py-14">
-      <OnboardingWizard initialAgents={user.agents ?? []} />
+      <OnboardingWizard initialAgents={user.agents ?? []} aiSettings={settings ?? { enabled: false, provider: null, model: null, keyHint: null }} />
     </main>
   )
 }

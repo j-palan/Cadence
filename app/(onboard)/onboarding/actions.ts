@@ -11,7 +11,7 @@ const schema = z.object({
   agents: z.array(z.enum(AGENT_IDS as [string, ...string[]])).min(1),
 })
 
-export async function finishOnboarding(agents: string[]) {
+export async function finishOnboarding(agents: string[], returnToSettings = false) {
   const session = await auth()
   if (!session?.user) redirect('/login')
 
@@ -22,5 +22,5 @@ export async function finishOnboarding(agents: string[]) {
 
   // userId from the session, never from the caller.
   await completeOnboarding(session.user.id, parsed.data.agents)
-  redirect('/dashboard')
+  redirect(returnToSettings ? '/settings?tab=onboarding' : '/dashboard')
 }

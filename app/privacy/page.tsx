@@ -4,13 +4,9 @@ import { LegalPage } from '@/components/legal-page'
 
 export const metadata: Metadata = { title: 'Privacy policy' }
 
-// Kept as a literal rather than imported from lib/gemini — that module is
-// server-only and pulls in the whole SDK for one string.
-const GENERATION_MODEL = 'gemini-3.6-flash'
-
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy policy" updated="19 August 2026">
+    <LegalPage title="Privacy policy" updated="18 September 2026">
       <section className="space-y-2">
         <h2>What is stored</h2>
         <ul className="ml-4 list-disc space-y-1">
@@ -32,25 +28,14 @@ export default function PrivacyPage() {
       <section className="space-y-2">
         <h2>Who it is shared with</h2>
         <p>
-          To generate a resume, your log and resume text are sent to a language-model provider. By
-          default that is Google&apos;s Gemini API using the{' '}
-          <span className="font-mono">{GENERATION_MODEL}</span> model on Cadence&apos;s key. Note
-          that Google&apos;s free tier may use submitted content to improve their models — see{' '}
-          <a
-            href="https://ai.google.dev/gemini-api/terms"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:text-foreground"
-          >
-            the Gemini API terms
-          </a>
-          .
+          To generate a resume, your log and resume text are sent to the language-model provider
+          and model you connect. Cadence does not provide a shared model key or send this content
+          to a model until you add and enable your own provider key.
         </p>
         <p>
-          If you add your own API key in Settings, your content goes to the provider you chose
-          instead, under <strong>your</strong> agreement with them rather than Cadence&apos;s. Your
-          key is encrypted before storage, is never returned to the browser, and is used only to
-          generate your own resumes. Removing it in Settings deletes it.
+          Your content goes to the provider you choose under your agreement with them. Your key is
+          encrypted before storage, is never returned to the browser, and is used only to generate
+          your own resumes. Removing it in Settings deletes it.
         </p>
         <p>Nothing is sold. Data is stored in a managed Postgres database.</p>
       </section>

@@ -22,7 +22,7 @@ export default async function NewResumePage() {
 
       <h1 className="mt-5 text-display-sm">New resume</h1>
       <p className="mt-3 max-w-readable text-sm leading-relaxed text-muted-foreground">
-        Import your log and let Claude draft the LaTeX, or open the template and write it yourself.
+        Import your log and let your AI model draft the LaTeX, or open the template and write it yourself.
       </p>
 
       <div className="mt-12">
