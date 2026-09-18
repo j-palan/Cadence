@@ -15,8 +15,9 @@ export const maxDuration = 120
 
 const paramsSchema = z.object({ id: z.string().uuid() })
 const bodySchema = z.object({
-  instruction: z.string().trim().min(2).max(2_000),
+  instruction: z.string().trim().min(2).max(4_000),
   source: z.string().min(1).max(MAX_EXISTING_SOURCE_CHARS),
+  jobDescription: z.string().trim().min(50).max(20_000).optional(),
 })
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
@@ -46,7 +47,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   try {
     const engine = await resolveEngine(session.user.id)
-    const plan = await generateResumeEdits(body.data.source, body.data.instruction, engine)
+    const plan = await generateResumeEdits(
+      body.data.source,
+      body.data.instruction,
+      engine,
+      body.data.jobDescription,
+    )
     const latexSource = applyResumeEdits(body.data.source, plan.edits)
     const compiled = await compileLatex(latexSource)
 
@@ -67,6 +73,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       source: latexSource,
       message: plan.message,
       editCount: plan.edits.length,
+      changes: plan.edits.map((edit) => ({ before: edit.find, after: edit.replace })),
     })
   } catch (error) {
     if (error instanceof EngineNotFoundError) {

@@ -400,7 +400,10 @@ export function ResumeEditor({
     }
   }
 
-  async function runChatEdit(instruction: string) {
+  async function runChatEdit(
+    instruction: string,
+    options: { jobDescription?: string; userMessage?: string } = {},
+  ) {
     if (!hasEnabledAi(aiSettings)) {
       setChatOpen(false)
       setApiKeyOpen(true)
@@ -411,7 +414,7 @@ export function ResumeEditor({
     const messageId = Date.now()
     setChatMessages((messages) => [
       ...messages,
-      { id: messageId, role: 'user', text: instruction },
+      { id: messageId, role: 'user', text: options.userMessage ?? instruction },
     ])
     setChatPending(true)
     setNotice(null)
@@ -421,12 +424,17 @@ export function ResumeEditor({
       const response = await fetch(`/api/resumes/${resume.id}/edit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instruction, source: before }),
+        body: JSON.stringify({
+          instruction,
+          source: before,
+          jobDescription: options.jobDescription,
+        }),
       })
       const body = (await response.json().catch(() => null)) as {
         source?: string
         message?: string
         editCount?: number
+        changes?: Array<{ before: string; after: string }>
         error?: string
         code?: string
       } | null
@@ -453,6 +461,7 @@ export function ResumeEditor({
           id: messageId + 1,
           role: 'assistant',
           text: body.message ?? `Applied ${body.editCount ?? 1} targeted edit${body.editCount === 1 ? '' : 's'}.`,
+          changes: body.changes,
         },
       ])
       await compile()
@@ -468,6 +477,21 @@ export function ResumeEditor({
     } finally {
       setChatPending(false)
     }
+  }
+
+  function runTailorEdit(jobDescription: string, customInstructions: string) {
+    setTailorError(null)
+    setTailorOpen(false)
+    setChatOpen(true)
+    const instruction = customInstructions.trim()
+      ? `Tailor this resume to the job description. Also follow these instructions: ${customInstructions.trim()}`
+      : 'Tailor this resume to the job description using the smallest useful wording changes.'
+    void runChatEdit(instruction, {
+      jobDescription,
+      userMessage: customInstructions.trim()
+        ? `Tailor this resume to the job description. ${customInstructions.trim()}`
+        : 'Tailor this resume to the job description.',
+    })
   }
 
   async function undoChatEdit() {
@@ -663,7 +687,7 @@ export function ResumeEditor({
         onSubmit={(log, customInstructions) =>
           void runGeneration('update', { log, customInstructions: customInstructions || undefined })
         }
-        pending={regenerating}
+        pending={regenerating || chatPending}
         error={updateError}
         lastImportedAt={lastLogImportedAt}
       />
@@ -682,12 +706,9 @@ export function ResumeEditor({
           if (!next) setTailorError(null)
         }}
         onSubmit={(jobDescription, customInstructions) =>
-          void runGeneration('tailor', {
-            jobDescription,
-            customInstructions: customInstructions || undefined,
-          })
+          runTailorEdit(jobDescription, customInstructions)
         }
-        pending={regenerating}
+        pending={regenerating || chatPending}
         error={tailorError}
       />
 
