@@ -32,6 +32,7 @@ export function PdfPane({
   log,
   message,
   onShowLog,
+  onSelectError,
 }: {
   url: string | null
   /** The source has changed since this PDF was produced. */
@@ -41,6 +42,7 @@ export function PdfPane({
   log: string
   message: string | null
   onShowLog: () => void
+  onSelectError?: (error: LatexError) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const pagesRef = useRef<HTMLDivElement>(null)
@@ -277,6 +279,35 @@ export function PdfPane({
         </div>
       ) : null}
 
+      {showViewer && status === 'failed' ? (
+        <div className="flex shrink-0 items-start gap-3 border-b border-destructive/25 bg-destructive/5 px-3 py-2.5 text-destructive">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold">
+              {errors.length > 0
+                ? `${errors.length} LaTeX error${errors.length === 1 ? '' : 's'}`
+                : 'Compilation failed'}
+            </p>
+            {errors[0] ? (
+              <button
+                type="button"
+                disabled={!errors[0].line || !onSelectError}
+                onClick={() => onSelectError?.(errors[0])}
+                className="mt-1 block max-w-full truncate text-left font-mono text-[11px] enabled:cursor-pointer enabled:underline enabled:underline-offset-2"
+              >
+                {errors[0].line ? `line ${errors[0].line}: ` : ''}
+                {errors[0].message}
+              </button>
+            ) : null}
+          </div>
+          {log ? (
+            <Button variant="ghost" size="sm" className="h-7 shrink-0" onClick={onShowLog}>
+              Full log
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div
         ref={scrollRef}
         onScroll={trackScroll}
@@ -311,14 +342,18 @@ export function PdfPane({
                 </p>
                 <ul className="space-y-1.5">
                   {errors.slice(0, 6).map((error, index) => (
-                    <li
-                      key={`${error.line}-${index}`}
-                      className="rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 font-mono text-[11px] leading-relaxed text-destructive"
-                    >
-                      {error.line ? (
-                        <span className="mr-1.5 opacity-70">line {error.line}</span>
-                      ) : null}
-                      {error.message}
+                    <li key={`${error.line}-${index}`}>
+                      <button
+                        type="button"
+                        disabled={!error.line || !onSelectError}
+                        onClick={() => onSelectError?.(error)}
+                        className="w-full rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-left font-mono text-[11px] leading-relaxed text-destructive enabled:cursor-pointer enabled:hover:border-destructive/50 enabled:hover:bg-destructive/10 disabled:cursor-default"
+                      >
+                        {error.line ? (
+                          <span className="mr-1.5 font-semibold opacity-80">line {error.line}</span>
+                        ) : null}
+                        {error.message}
+                      </button>
                     </li>
                   ))}
                 </ul>

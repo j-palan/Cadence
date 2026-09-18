@@ -46,7 +46,7 @@ export function ModelSettings({ settings, onBusyChange, onSettingsChange }: Mode
   }, [pending, onBusyChange])
 
   const active = current.enabled && Boolean(current.keyHint)
-  const manualModel = provider === 'openai' || provider === 'other'
+  const manualModel = provider === 'other'
 
   async function call(action: string, init: RequestInit) {
     setPending(action)
@@ -148,6 +148,11 @@ export function ModelSettings({ settings, onBusyChange, onSettingsChange }: Mode
               )}
             </div>
           </div>
+          {!manualModel ? (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {modelsFor(provider).find((candidate) => candidate.id === model)?.note}
+            </p>
+          ) : null}
           {provider === 'other' ? (
             <div className="space-y-1.5">
               <Label htmlFor="base-url">API base URL</Label>

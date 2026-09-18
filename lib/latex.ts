@@ -200,28 +200,62 @@ export function parseLatexLog(log: string): LatexError[] {
   const errors: LatexError[] = []
   const seen = new Set<string>()
 
-  const patterns = [
-    /^(?:[^\s:]+):(\d+):\s*(.+)$/gm, // file:line: message
-    /^!\s+(.+)$/gm, // ! message
-    /^error:\s*(.+)$/gim, // tectonic's own diagnostics
-  ]
+  function add(line: number | null, rawMessage: string) {
+    const message = friendlyLatexMessage(rawMessage)
+    if (!message || message.startsWith('==>')) return
+    const key = `${line}:${message}`
+    if (seen.has(key)) return
+    seen.add(key)
+    errors.push({ line: line && Number.isFinite(line) ? line : null, message })
+  }
 
-  for (const [index, pattern] of patterns.entries()) {
-    for (const match of log.matchAll(pattern)) {
-      const line = index === 0 ? Number.parseInt(match[1], 10) : null
-      const message = (index === 0 ? match[2] : match[1]).trim()
+  const lines = log.split(/\r?\n/)
+  for (let index = 0; index < lines.length; index += 1) {
+    const current = lines[index]
+    const fileLine = current.match(/^(?:[^\s:]+):(\d+):\s*(.+)$/)
+    if (fileLine) {
+      add(Number.parseInt(fileLine[1], 10), fileLine[2])
+      continue
+    }
 
-      if (!message || message.startsWith('==>')) continue
+    const tectonic = current.match(/^error:\s*(.+)$/i)
+    if (tectonic) {
+      const nearby = lines.slice(index + 1, index + 5).join('\n').match(/(?:resume\.tex:|\bl\.)(\d+)/)
+      add(nearby ? Number.parseInt(nearby[1], 10) : null, tectonic[1])
+      continue
+    }
 
-      const key = `${line}:${message}`
-      if (seen.has(key)) continue
-      seen.add(key)
-
-      errors.push({ line: Number.isFinite(line) ? line : null, message })
+    const tex = current.match(/^!\s+(.+)$/)
+    if (tex) {
+      const nearby = lines.slice(index + 1, index + 7).join('\n').match(/^l\.(\d+)/m)
+      add(nearby ? Number.parseInt(nearby[1], 10) : null, tex[1])
     }
   }
 
   return errors.slice(0, 25)
+}
+
+function friendlyLatexMessage(message: string): string {
+  const normalized = message.trim().replace(/\s+/g, ' ')
+  if (/undefined control sequence/i.test(normalized)) {
+    return 'Unknown LaTeX command. Check the command name and its leading backslash.'
+  }
+  if (/runaway argument|file ended while scanning/i.test(normalized)) {
+    return 'A command argument is not closed. Check for a missing `}` above this line.'
+  }
+  if (/missing \} inserted/i.test(normalized)) {
+    return 'A closing `}` is missing near this line.'
+  }
+  if (/extra \}, or forgotten/i.test(normalized)) {
+    return 'There is an extra `}` or a command is missing its opening `{`.'
+  }
+  if (/\begin\{(.+?)\}.*ended by.*\end\{(.+?)\}/i.test(normalized)) {
+    return 'A LaTeX environment is closed in the wrong order. Match each `\\begin{…}` with its `\\end{…}`.'
+  }
+  if (/emergency stop/i.test(normalized)) {
+    return 'LaTeX stopped after an earlier error. Fix the first highlighted problem and compile again.'
+  }
+  return normalized
 }
 
 async function readIfPresent(path: string): Promise<string> {
