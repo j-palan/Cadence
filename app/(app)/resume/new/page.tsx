@@ -4,11 +4,13 @@ import { ArrowLeft } from 'lucide-react'
 
 import { ImportForm } from '@/components/resume/import-form'
 import { requireOnboardedUser } from '@/lib/auth-guards'
+import { getAiSettingsForClient } from '@/lib/db/queries'
 
 export const metadata: Metadata = { title: 'New resume' }
 
 export default async function NewResumePage() {
-  await requireOnboardedUser()
+  const user = await requireOnboardedUser()
+  const aiSettings = await getAiSettingsForClient(user.id)
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-14">
@@ -26,7 +28,17 @@ export default async function NewResumePage() {
       </p>
 
       <div className="mt-12">
-        <ImportForm />
+        <ImportForm
+          aiSettings={
+            aiSettings ?? {
+              enabled: false,
+              provider: null,
+              model: null,
+              keyHint: null,
+              baseUrl: null,
+            }
+          }
+        />
       </div>
     </main>
   )
