@@ -89,6 +89,7 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
   // True when the source has changed since the last successful compile, so the
   // preview on screen is out of date.
   const [stale, setStale] = useState(false)
+  const [jumpTarget, setJumpTarget] = useState<{ line: number; request: number } | null>(null)
 
   const router = useRouter()
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -453,7 +454,13 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
         <Group orientation="horizontal" className="h-full overflow-hidden">
           <Panel defaultSize="50%" minSize="25%" className="overflow-hidden">
             <EditorBoundary value={source} onChange={onSourceChange}>
-              <CodePane value={source} onChange={onSourceChange} onSave={saveAndCompileNow} />
+              <CodePane
+                value={source}
+                onChange={onSourceChange}
+                onSave={saveAndCompileNow}
+                errors={errors}
+                jumpTarget={jumpTarget}
+              />
             </EditorBoundary>
           </Panel>
 
@@ -468,6 +475,9 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
               log={log}
               message={notice}
               onShowLog={() => setLogOpen(true)}
+              onSelectError={(error) => {
+                if (error.line) setJumpTarget({ line: error.line, request: Date.now() })
+              }}
             />
           </Panel>
         </Group>

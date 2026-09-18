@@ -50,6 +50,31 @@ export interface ModelMeta {
 }
 
 export const MODELS: ModelMeta[] = [
+  // --- OpenAI ---
+  {
+    id: 'gpt-5.6-terra',
+    provider: 'openai',
+    label: 'GPT-5.6 Terra',
+    note: 'Balanced intelligence and cost. A strong default for resume work.',
+  },
+  {
+    id: 'gpt-5.6-luna',
+    provider: 'openai',
+    label: 'GPT-5.6 Luna',
+    note: 'Optimized for cost-sensitive workloads.',
+  },
+  {
+    id: 'gpt-5.6-sol',
+    provider: 'openai',
+    label: 'GPT-5.6 Sol',
+    note: 'A flagship model for complex professional work.',
+  },
+  {
+    id: 'gpt-6-astra',
+    provider: 'openai',
+    label: 'GPT-6 Astra',
+    note: 'OpenAI’s most capable model for the hardest work.',
+  },
   // --- Gemini ---
   {
     id: 'gemini-3.6-flash',
@@ -105,7 +130,7 @@ export function findModel(id: string): ModelMeta | undefined {
 }
 
 export function isValidPair(provider: string, model: string): provider is ProviderId {
-  if (provider === 'openai' || provider === 'other') return model.trim().length > 0 && model.length <= 120
+  if (provider === 'other') return model.trim().length > 0 && model.length <= 120
   return MODELS.some((m) => m.provider === provider && m.id === model)
 }
 
