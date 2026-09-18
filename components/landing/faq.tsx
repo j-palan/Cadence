@@ -24,7 +24,7 @@ interface Faq {
 const FAQS: Faq[] = [
   {
     q: 'Do I have to write the log myself?',
-    a: "No — that's the point. You paste a short instruction into your coding agent's config once, and from then on it appends each win to a markdown file as the work happens. Claude Code, Cursor, GitHub Copilot, Windsurf, Cline and Aider all have a snippet ready in onboarding. Any agent that reads an instructions file works; the snippet is plain English, not an integration.",
+    a: "No — that's the point. You paste a short instruction into your coding agent's config once, and from then on it appends each win to a markdown file as the work happens. Claude Code, Cursor, GitHub Copilot, and Codex have a snippet ready in onboarding. The general option works with any agent that reads an instructions file; the snippet is plain English, not an integration.",
   },
   {
     q: "What if I don't use a coding agent?",
