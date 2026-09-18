@@ -236,7 +236,7 @@ export function PdfPane({
   const showViewer = Boolean(url) && !renderError
 
   return (
-    <div className="flex h-full flex-col bg-neutral-200/70 dark:bg-neutral-950">
+    <div className="flex h-full flex-col bg-neutral-200/70 dark:bg-neutral-800">
       {/* A slim strip, not a browser toolbar. */}
       <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border bg-background px-2">
         <Button

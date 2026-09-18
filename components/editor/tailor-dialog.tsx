@@ -45,7 +45,7 @@ export function TailorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="left-4 right-4 top-4 w-auto translate-x-0 translate-y-0 sm:left-auto sm:right-6 sm:top-16 sm:w-full sm:max-w-2xl">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Target className="h-4 w-4 text-success" />
