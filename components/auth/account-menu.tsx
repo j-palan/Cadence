@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Home, Settings, User as UserIcon } from 'lucide-react'
 
 import { SignOutItem } from '@/components/auth/sign-out-item'
@@ -24,6 +27,11 @@ export function AccountMenu({
   user: AccountUser
   showSettings?: boolean
 }) {
+  const pathname = usePathname()
+  const settingsHref = pathname.startsWith('/resume/') && pathname !== '/resume/new'
+    ? { pathname: '/settings', query: { returnTo: pathname } }
+    : '/settings'
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="ml-1 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-card transition-colors hover:border-foreground/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
@@ -49,7 +57,7 @@ export function AccountMenu({
         </DropdownMenuItem>
         {showSettings ? (
           <DropdownMenuItem asChild>
-            <Link href="/settings">
+            <Link href={settingsHref}>
               <Settings />
               Settings
             </Link>

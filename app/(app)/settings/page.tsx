@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 
 import { AgentSnippet } from '@/components/onboarding/agent-snippet'
 import { OnboardingWizard } from '@/components/onboarding/wizard'
@@ -7,6 +9,7 @@ import { Appearance } from '@/components/settings/appearance'
 import { ModelSettings } from '@/components/settings/model-settings'
 import { DeleteAccount } from '@/components/settings/delete-account'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AGENTS, LOG_PATH } from '@/lib/agents'
@@ -18,7 +21,7 @@ export const metadata: Metadata = { title: 'Settings' }
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: { tab?: string }
+  searchParams: { tab?: string; returnTo?: string }
 }) {
   const sessionUser = await requireOnboardedUser()
 
@@ -32,9 +35,19 @@ export default async function SettingsPage({
   if (!user) redirect('/login')
 
   const chosen = AGENTS.filter((agent) => user.agents.includes(agent.id))
+  const editorReturnPath = searchParams.returnTo?.startsWith('/resume/')
+    ? searchParams.returnTo
+    : null
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-6 py-14">
+      {editorReturnPath ? (
+        <Button asChild variant="ghost" size="sm" className="-ml-3 w-fit">
+          <Link href={editorReturnPath}>
+            <ArrowLeft /> Back to editor
+          </Link>
+        </Button>
+      ) : null}
       <div>
         <h1 className="text-display-sm">Settings</h1>
         <p className="mt-3 text-sm text-muted-foreground">Account, agents, and data.</p>

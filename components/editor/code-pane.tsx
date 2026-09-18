@@ -87,7 +87,7 @@ export function CodePane({
         // generic word-completer just gets in the way.
         autocompletion: false,
       }}
-      className="h-full text-[13px]"
+      className="h-full bg-card text-[13px]"
     />
   )
 }

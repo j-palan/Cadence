@@ -45,7 +45,7 @@ export function ResumeChatPanel({
 
   return (
     <aside className="flex h-full min-w-0 flex-col bg-background">
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-background px-3">
         <Bot className="h-4 w-4 text-success" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">Edit with AI</p>
@@ -63,7 +63,7 @@ export function ResumeChatPanel({
         </Button>
       </header>
 
-      <div ref={messagesRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4">
+      <div ref={messagesRef} className="m-3 mb-0 min-h-0 flex-1 space-y-4 overflow-y-auto rounded-xl border-2 border-input bg-card px-3 py-4">
           {messages.length === 0 ? (
             <div className="space-y-3 text-xs text-muted-foreground">
               <div className="rounded-lg border border-border bg-muted/30 p-3 leading-relaxed">
@@ -119,8 +119,8 @@ export function ResumeChatPanel({
           ) : null}
       </div>
 
-      <div className="shrink-0 border-t border-border p-3">
-        <div className="rounded-xl border border-input bg-card p-2 shadow-sm focus-within:border-success focus-within:ring-2 focus-within:ring-success/20">
+      <div className="shrink-0 border-t border-border bg-background p-3">
+        <div className="rounded-xl border-2 border-input bg-card p-2 shadow-sm transition-colors focus-within:border-success focus-within:ring-2 focus-within:ring-success/20">
           <Textarea
             value={instruction}
             onChange={(event) => setInstruction(event.target.value)}

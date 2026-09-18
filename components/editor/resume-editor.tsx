@@ -41,6 +41,7 @@ import type { AiSettings } from '@/components/settings/model-settings'
 import { readGenerateStream } from '@/lib/generate-stream'
 import type { GenerationMode } from '@/lib/prompts'
 import type { CompileFailureBody, LatexError } from '@/lib/latex-client'
+import { getCachedPreview, setCachedPreview } from '@/lib/pdf-preview-cache'
 import { templateName } from '@/lib/templates/meta'
 
 // CodeMirror touches `document` on import, so it must not be server-rendered.
@@ -135,6 +136,7 @@ export function ResumeEditor({
 
   const compile = useCallback(async () => {
     const seq = ++compileSeq.current
+    const sourceToCompile = sourceRef.current
     setCompileState('compiling')
     setNotice(null)
 
@@ -142,7 +144,7 @@ export function ResumeEditor({
       const response = await fetch('/api/compile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resumeId: resume.id, source: sourceRef.current }),
+        body: JSON.stringify({ resumeId: resume.id, source: sourceToCompile }),
       })
 
       if (seq !== compileSeq.current) return
@@ -151,12 +153,14 @@ export function ResumeEditor({
         const blob = await response.blob()
         if (seq !== compileSeq.current) return
 
+        const nextEngine = response.headers.get('X-Cadence-Engine')
+        setCachedPreview(resume.id, sourceToCompile, blob, nextEngine)
         replacePdfUrl(URL.createObjectURL(blob))
         setErrors([])
         setLog('')
-        setEngine(response.headers.get('X-Cadence-Engine'))
+        setEngine(nextEngine)
         setCompileState('ok')
-        setStale(false)
+        setStale(sourceRef.current !== sourceToCompile)
         return
       }
 
@@ -230,10 +234,22 @@ export function ResumeEditor({
     }).catch(() => {})
   }, [resume.id])
 
-  // First paint: compile whatever is stored so the preview is never blank.
+  // Restore an exact cached preview after client navigation. Changed source or
+  // a full browser refresh still falls through to a real compile.
   useEffect(() => {
+    const cached = getCachedPreview(resume.id, sourceRef.current)
+    if (cached) {
+      replacePdfUrl(URL.createObjectURL(cached.pdf))
+      setEngine(cached.engine)
+      setErrors([])
+      setLog('')
+      setNotice(null)
+      setCompileState('ok')
+      setStale(false)
+      return
+    }
     void compile()
-  }, [compile])
+  }, [compile, replacePdfUrl, resume.id])
 
   /**
    * Saving is automatic; compiling is not.
