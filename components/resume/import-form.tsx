@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation'
 import { FileCode2, Loader2, Sparkles } from 'lucide-react'
 
 import { GeneratingOverlay } from '@/components/generating-overlay'
+import { ApiKeyDialog, hasEnabledAi } from '@/components/ai/api-key-dialog'
 import { LogInput } from '@/components/log-input'
+import type { AiSettings } from '@/components/settings/model-settings'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,7 +17,7 @@ import { DEFAULT_TEMPLATE, TEMPLATES } from '@/lib/templates/meta'
 
 const MIN_LOG_CHARS = 20
 
-export function ImportForm() {
+export function ImportForm({ aiSettings: initialAiSettings }: { aiSettings: AiSettings }) {
   const router = useRouter()
   const [log, setLog] = useState('')
   const [name, setName] = useState('My Resume')
@@ -23,6 +25,8 @@ export function ImportForm() {
   const [starting, setStarting] = useState(false)
   const [preview, setPreview] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [aiSettings, setAiSettings] = useState(initialAiSettings)
+  const [apiKeyOpen, setApiKeyOpen] = useState(false)
   const previewRef = useRef<HTMLPreElement>(null)
 
   const template = TEMPLATES.find((t) => t.id === DEFAULT_TEMPLATE)
@@ -32,6 +36,11 @@ export function ImportForm() {
   }, [preview])
 
   async function generate() {
+    if (!hasEnabledAi(aiSettings)) {
+      setApiKeyOpen(true)
+      return
+    }
+
     if (log.trim().length < MIN_LOG_CHARS) {
       setError('Paste your log first — there is not enough here to work with.')
       return
@@ -54,7 +63,16 @@ export function ImportForm() {
       })
 
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
+        const body = (await response.json().catch(() => null)) as {
+          error?: string
+          code?: string
+        } | null
+        if (body?.code === 'API_KEY_REQUIRED') {
+          setAiSettings((current) => ({ ...current, enabled: false }))
+          setApiKeyOpen(true)
+          setGenerating(false)
+          return
+        }
         throw new Error(body?.error ?? `Generation failed (${response.status})`)
       }
 
@@ -98,6 +116,12 @@ export function ImportForm() {
 
   return (
     <div className="relative space-y-8">
+      <ApiKeyDialog
+        open={apiKeyOpen}
+        onOpenChange={setApiKeyOpen}
+        settings={aiSettings}
+        onSettingsChange={setAiSettings}
+      />
       {generating ? <GeneratingOverlay mode="create" source={preview} className="-m-6 rounded-xl" /> : null}
 
       <section className="space-y-3">

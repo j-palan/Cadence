@@ -129,7 +129,7 @@ export async function POST(request: Request) {
     engine = await resolveEngine(userId)
   } catch (error) {
     const { status, message } = describeGenerationError(error)
-    return NextResponse.json({ error: message }, { status })
+    return NextResponse.json({ error: message, code: 'API_KEY_REQUIRED' }, { status })
   }
 
   const encoder = new TextEncoder()

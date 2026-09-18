@@ -23,9 +23,15 @@ export interface ModelSettingsProps {
   settings: AiSettings
   onBusyChange?: (busy: boolean) => void
   onSettingsChange?: (settings: AiSettings) => void
+  showSecurityNotice?: boolean
 }
 
-export function ModelSettings({ settings, onBusyChange, onSettingsChange }: ModelSettingsProps) {
+export function ModelSettings({
+  settings,
+  onBusyChange,
+  onSettingsChange,
+  showSecurityNotice = true,
+}: ModelSettingsProps) {
   const router = useRouter()
   const [current, setCurrent] = useState(settings)
   const initialProvider = PROVIDERS.includes(settings.provider as ProviderId)
@@ -110,9 +116,9 @@ export function ModelSettings({ settings, onBusyChange, onSettingsChange }: Mode
               {current.enabled ? 'Turn off' : 'Turn on'}
             </Button>
             <Button variant="outline" size="sm" disabled={pending !== null} onClick={() => setEditing(!editing)}>
-              {editing ? 'Cancel changes' : 'Change provider, model, or key'}
+              {editing ? 'Cancel changes' : 'Edit'}
             </Button>
-            <Button variant="ghost" size="sm" disabled={pending !== null}
+            <Button variant="ghost" size="sm" className="ml-auto" disabled={pending !== null}
               onClick={() => void call('remove', { method: 'DELETE' })}>
               <Trash2 /> Remove key
             </Button>
@@ -184,11 +190,13 @@ export function ModelSettings({ settings, onBusyChange, onSettingsChange }: Mode
       ) : null}
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
       {saved ? <p role="status" className="flex items-center gap-2 text-sm text-success"><Check className="h-4 w-4" />Key verified and saved.</p> : null}
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        Your key is encrypted before storage and never sent back to the browser.
-        Verification makes a small request to your provider. AI requests use your provider’s quota
-        and billing; your log and resume text go to the provider you choose.
-      </p>
+      {showSecurityNotice ? (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Your key is encrypted before storage and never sent back to the browser.
+          Verification makes a small request to your provider. AI requests use your provider’s quota
+          and billing; your log and resume text go to the provider you choose.
+        </p>
+      ) : null}
     </div>
   )
 }

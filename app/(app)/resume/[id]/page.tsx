@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 
 import { ResumeEditor } from '@/components/editor/resume-editor'
 import { requireOnboardedUser } from '@/lib/auth-guards'
-import { getLatestLogImport, getResume } from '@/lib/db/queries'
+import { getAiSettingsForClient, getLatestLogImport, getResume } from '@/lib/db/queries'
 import { getTemplateSource } from '@/lib/templates/server'
 
 export const metadata: Metadata = { title: 'Editor' }
@@ -16,7 +16,10 @@ export default async function ResumePage({ params }: { params: { id: string } })
 
   // Ownership is enforced in the query. `null` covers both "no such resume" and
   // "not yours", which is why both end up as a 404.
-  const resume = await getResume(user.id, params.id)
+  const [resume, aiSettings] = await Promise.all([
+    getResume(user.id, params.id),
+    getAiSettingsForClient(user.id),
+  ])
   if (!resume) notFound()
 
   const log = await getLatestLogImport(user.id, resume.id)
@@ -37,6 +40,15 @@ export default async function ResumePage({ params }: { params: { id: string } })
         updatedAt: resume.updatedAt.toISOString(),
       }}
       lastLogImportedAt={log?.importedAt.toISOString() ?? null}
+      aiSettings={
+        aiSettings ?? {
+          enabled: false,
+          provider: null,
+          model: null,
+          keyHint: null,
+          baseUrl: null,
+        }
+      }
     />
   )
 }

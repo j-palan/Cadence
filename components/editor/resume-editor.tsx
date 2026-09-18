@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 
 import { GeneratingOverlay } from '@/components/generating-overlay'
+import { ApiKeyDialog, hasEnabledAi } from '@/components/ai/api-key-dialog'
 import { EditorBoundary } from '@/components/editor/editor-boundary'
 import { PdfPane } from '@/components/editor/pdf-pane'
 import { TailorDialog } from '@/components/editor/tailor-dialog'
@@ -33,6 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import type { AiSettings } from '@/components/settings/model-settings'
 import { readGenerateStream } from '@/lib/generate-stream'
 import type { GenerationMode } from '@/lib/prompts'
 import type { CompileFailureBody, LatexError } from '@/lib/latex-client'
@@ -66,9 +68,14 @@ export interface ResumeEditorProps {
   }
   /** When the log was last imported, if ever. Shown in the update dialog. */
   lastLogImportedAt: string | null
+  aiSettings: AiSettings
 }
 
-export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
+export function ResumeEditor({
+  resume,
+  lastLogImportedAt,
+  aiSettings: initialAiSettings,
+}: ResumeEditorProps) {
   const [source, setSource] = useState(resume.latexSource)
   const [name, setName] = useState(resume.name)
   const [saveState, setSaveState] = useState<SaveState>('saved')
@@ -90,6 +97,8 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
   // preview on screen is out of date.
   const [stale, setStale] = useState(false)
   const [jumpTarget, setJumpTarget] = useState<{ line: number; request: number } | null>(null)
+  const [aiSettings, setAiSettings] = useState(initialAiSettings)
+  const [apiKeyOpen, setApiKeyOpen] = useState(false)
 
   const router = useRouter()
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -315,6 +324,11 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
     mode: Exclude<GenerationMode, 'create'>,
     payload: { log?: string; jobDescription?: string; customInstructions?: string } = {},
   ) {
+    if (!hasEnabledAi(aiSettings)) {
+      setApiKeyOpen(true)
+      return
+    }
+
     setRegenerating(true)
     setActiveMode(mode)
     setNotice(null)
@@ -340,7 +354,15 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
       })
 
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
+        const body = (await response.json().catch(() => null)) as {
+          error?: string
+          code?: string
+        } | null
+        if (body?.code === 'API_KEY_REQUIRED') {
+          setAiSettings((current) => ({ ...current, enabled: false }))
+          setApiKeyOpen(true)
+          return
+        }
         throw new Error(body?.error ?? `Generation failed (${response.status})`)
       }
 
@@ -402,7 +424,9 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setUpdateOpen(true)}
+            onClick={() =>
+              hasEnabledAi(aiSettings) ? setUpdateOpen(true) : setApiKeyOpen(true)
+            }
             disabled={busy}
             title="Merge anything new in your log into this resume"
           >
@@ -413,7 +437,9 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setTailorOpen(true)}
+            onClick={() =>
+              hasEnabledAi(aiSettings) ? setTailorOpen(true) : setApiKeyOpen(true)
+            }
             disabled={busy}
             title="Align wording with a job description"
           >
@@ -512,6 +538,13 @@ export function ResumeEditor({ resume, lastLogImportedAt }: ResumeEditorProps) {
         pending={regenerating}
         error={updateError}
         lastImportedAt={lastLogImportedAt}
+      />
+
+      <ApiKeyDialog
+        open={apiKeyOpen}
+        onOpenChange={setApiKeyOpen}
+        settings={aiSettings}
+        onSettingsChange={setAiSettings}
       />
 
       <TailorDialog
