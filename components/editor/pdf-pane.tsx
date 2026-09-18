@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertTriangle, FileWarning, Loader2, Minus, Plus } from 'lucide-react'
+import { AlertTriangle, Download, FileWarning, Loader2, Minus, Play, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import type { LatexError } from '@/lib/latex-client'
@@ -31,6 +31,9 @@ export function PdfPane({
   errors,
   log,
   message,
+  actionsDisabled = false,
+  onRecompile,
+  onDownload,
   onShowLog,
   onSelectError,
 }: {
@@ -41,6 +44,9 @@ export function PdfPane({
   errors: LatexError[]
   log: string
   message: string | null
+  actionsDisabled?: boolean
+  onRecompile: () => void
+  onDownload: () => void
   onShowLog: () => void
   onSelectError?: (error: LatexError) => void
 }) {
@@ -232,8 +238,33 @@ export function PdfPane({
   return (
     <div className="flex h-full flex-col bg-neutral-200/70 dark:bg-neutral-950">
       {/* A slim strip, not a browser toolbar. */}
-      {showViewer ? (
-        <div className="flex items-center gap-1 border-b border-border bg-background px-3 py-1.5">
+      <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border bg-background px-2">
+        <Button
+          variant={stale ? 'success' : 'ghost'}
+          size="sm"
+          className="h-8 px-2.5"
+          onClick={onRecompile}
+          disabled={actionsDisabled}
+          title={stale ? 'The preview is out of date (⌘S)' : 'Recompile (⌘S)'}
+        >
+          {status === 'compiling' ? <Loader2 className="animate-spin" /> : <Play />}
+          Recompile
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={onDownload}
+          disabled={actionsDisabled}
+          aria-label="Download PDF"
+          title="Download PDF"
+        >
+          <Download />
+        </Button>
+
+        {showViewer ? <span className="mx-1 h-4 w-px bg-border" /> : null}
+        {showViewer ? (
+          <>
           <Button
             variant="ghost"
             size="icon"
@@ -260,24 +291,25 @@ export function PdfPane({
           >
             <Plus />
           </Button>
+          </>
+        ) : null}
 
-          <span className="ml-auto flex items-center gap-3">
-            {stale ? (
-              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                Out of date — press ⌘S
-              </span>
-            ) : null}
-            <span className="font-mono text-[11px] text-muted-foreground">
-              {pageCount > 0 ? `${pageCount} page${pageCount === 1 ? '' : 's'}` : null}
+        <span className="ml-auto flex items-center gap-3">
+          {stale ? (
+            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+              Out of date — press ⌘S
             </span>
-          </span>
-
-          {rendering || status === 'compiling' ? (
-            <Loader2 className="ml-2 h-3 w-3 animate-spin text-muted-foreground" />
           ) : null}
-        </div>
-      ) : null}
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {pageCount > 0 ? `${pageCount} page${pageCount === 1 ? '' : 's'}` : null}
+          </span>
+        </span>
+
+        {rendering || status === 'compiling' ? (
+          <Loader2 className="ml-2 h-3 w-3 animate-spin text-muted-foreground" />
+        ) : null}
+      </div>
 
       {showViewer && status === 'failed' ? (
         <div className="flex shrink-0 items-start gap-3 border-b border-destructive/25 bg-destructive/5 px-3 py-2.5 text-destructive">

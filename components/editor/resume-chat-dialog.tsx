@@ -1,16 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { Bot, Loader2, Send, Undo2, User } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Bot, Loader2, Send, Undo2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 
 export interface ResumeChatMessage {
@@ -19,17 +12,15 @@ export interface ResumeChatMessage {
   text: string
 }
 
-export function ResumeChatDialog({
-  open,
-  onOpenChange,
+export function ResumeChatPanel({
+  onClose,
   messages,
   pending,
   canUndo,
   onSubmit,
   onUndo,
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  onClose: () => void
   messages: ResumeChatMessage[]
   pending: boolean
   canUndo: boolean
@@ -37,6 +28,12 @@ export function ResumeChatDialog({
   onUndo: () => void
 }) {
   const [instruction, setInstruction] = useState('')
+  const messagesRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const element = messagesRef.current
+    if (element) element.scrollTop = element.scrollHeight
+  }, [messages, pending])
 
   function submit() {
     const value = instruction.trim()
@@ -46,48 +43,69 @@ export function ResumeChatDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
-      <DialogContent className="left-4 right-4 top-4 flex max-h-[calc(100dvh-2rem)] w-auto translate-x-0 translate-y-0 flex-col sm:left-auto sm:right-6 sm:top-16 sm:w-full sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Bot className="h-4 w-4 text-success" />
-            Edit with AI
-          </DialogTitle>
-          <DialogDescription>
-            Describe a change. Cadence edits only the matching LaTeX and verifies that it compiles.
-          </DialogDescription>
-        </DialogHeader>
+    <aside className="flex h-full min-w-0 flex-col bg-background">
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
+        <Bot className="h-4 w-4 text-success" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">Edit with AI</p>
+          <p className="truncate text-[10px] text-muted-foreground">Targeted edits · compile checked</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={onClose}
+          disabled={pending}
+          aria-label="Close AI chat"
+        >
+          <X />
+        </Button>
+      </header>
 
-        <div className="mt-5 min-h-32 flex-1 space-y-3 overflow-y-auto rounded-lg border border-border bg-muted/20 p-3">
+      <div ref={messagesRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4">
           {messages.length === 0 ? (
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p>Try one of these:</p>
-              <button type="button" className="block text-left hover:text-foreground"
+            <div className="space-y-3 text-xs text-muted-foreground">
+              <div className="rounded-lg border border-border bg-muted/30 p-3 leading-relaxed">
+                Ask for a change and keep watching the PDF. Cadence changes only the matching source
+                and verifies the result before saving.
+              </div>
+              <p className="font-medium text-foreground">Try asking</p>
+              <button type="button" className="block w-full rounded-lg border border-border px-3 py-2 text-left hover:bg-accent hover:text-foreground"
                 onClick={() => setInstruction('Make the Cadence project bullets more concise')}>
-                “Make the Cadence project bullets more concise”
+                Make the Cadence project bullets more concise
               </button>
-              <button type="button" className="block text-left hover:text-foreground"
+              <button type="button" className="block w-full rounded-lg border border-border px-3 py-2 text-left hover:bg-accent hover:text-foreground"
                 onClick={() => setInstruction('Move the Skills section above Education')}>
-                “Move the Skills section above Education”
+                Move the Skills section above Education
               </button>
             </div>
           ) : messages.map((message) => (
-            <div key={message.id} className={`flex gap-2 text-sm ${message.role === 'error' ? 'text-destructive' : ''}`}>
-              {message.role === 'user'
-                ? <User className="mt-0.5 h-4 w-4 shrink-0" />
-                : <Bot className="mt-0.5 h-4 w-4 shrink-0" />}
-              <p className="leading-relaxed">{message.text}</p>
+            <div
+              key={message.id}
+              className={message.role === 'user' ? 'flex justify-end' : 'flex gap-2'}
+            >
+              {message.role !== 'user' ? (
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-success/10 text-success">
+                  <Bot className="h-3.5 w-3.5" />
+                </span>
+              ) : null}
+              <p className={message.role === 'user'
+                ? 'max-w-[88%] rounded-xl rounded-br-sm bg-primary px-3 py-2 text-xs leading-relaxed text-primary-foreground'
+                : `min-w-0 text-xs leading-relaxed ${message.role === 'error' ? 'text-destructive' : 'text-foreground'}`}>
+                {message.text}
+              </p>
             </div>
           ))}
           {pending ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Finding the smallest safe edit and checking the PDF…
+              Editing and checking the PDF…
             </div>
           ) : null}
-        </div>
+      </div>
 
-        <div className="mt-4 space-y-3">
+      <div className="shrink-0 border-t border-border p-3">
+        <div className="rounded-xl border border-input bg-card p-2 shadow-sm focus-within:border-success focus-within:ring-2 focus-within:ring-success/20">
           <Textarea
             value={instruction}
             onChange={(event) => setInstruction(event.target.value)}
@@ -100,20 +118,24 @@ export function ResumeChatDialog({
             disabled={pending}
             maxLength={2_000}
             placeholder="What would you like to change?"
-            className="min-h-24"
+            className="min-h-20 resize-none border-0 bg-transparent p-1 text-xs shadow-none focus-visible:border-0 focus-visible:ring-0"
           />
-          <div className="flex items-center justify-between gap-2">
-            <Button variant="ghost" size="sm" onClick={onUndo} disabled={pending || !canUndo}>
-              <Undo2 /> Undo last edit
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={onUndo}
+              disabled={pending || !canUndo}>
+              <Undo2 /> Undo
             </Button>
-            <Button variant="success" size="sm" onClick={submit}
+            <Button variant="success" size="icon" className="h-8 w-8" onClick={submit}
               disabled={pending || instruction.trim().length < 2}>
               {pending ? <Loader2 className="animate-spin" /> : <Send />}
-              Send
+              <span className="sr-only">Send</span>
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+        <p className="mt-2 text-center text-[10px] text-muted-foreground">
+          Enter to send · Shift+Enter for a new line
+        </p>
+      </div>
+    </aside>
   )
 }
