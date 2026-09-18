@@ -21,7 +21,9 @@ export function OnboardingWizard({ initialAgents, aiSettings, revisiting = false
   const [currentAi, setCurrentAi] = useState(aiSettings)
   const [aiBusy, setAiBusy] = useState(false)
   const [step, setStep] = useState(0)
-  const [selected, setSelected] = useState<string[]>(initialAgents)
+  const [selected, setSelected] = useState<string[]>(
+    initialAgents.filter((id) => AGENTS.some((agent) => agent.id === id)),
+  )
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
