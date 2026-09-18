@@ -9,11 +9,9 @@ import {
   ArrowLeft,
   Check,
   CloudOff,
-  Download,
   FileText,
   Loader2,
   MessageCircle,
-  Play,
   ScrollText,
   Sparkles,
   Target,
@@ -24,7 +22,7 @@ import { ApiKeyDialog, hasEnabledAi } from '@/components/ai/api-key-dialog'
 import { EditorBoundary } from '@/components/editor/editor-boundary'
 import { PdfPane } from '@/components/editor/pdf-pane'
 import {
-  ResumeChatDialog,
+  ResumeChatPanel,
   type ResumeChatMessage,
 } from '@/components/editor/resume-chat-dialog'
 import { TailorDialog } from '@/components/editor/tailor-dialog'
@@ -536,6 +534,13 @@ export function ResumeEditor({
 
         <SaveIndicator state={saveState} />
 
+        {log ? (
+          <Button variant="ghost" size="sm" onClick={() => setLogOpen(true)}>
+            <ScrollText />
+            <span className="hidden sm:inline">Log</span>
+          </Button>
+        ) : null}
+
         <div className="ml-auto flex items-center gap-2">
           <Button
             variant="ghost"
@@ -573,29 +578,6 @@ export function ResumeEditor({
             <Target />
             <span className="hidden md:inline">Tailor</span>
           </Button>
-
-          {log ? (
-            <Button variant="ghost" size="sm" onClick={() => setLogOpen(true)}>
-              <ScrollText />
-              <span className="hidden sm:inline">Log</span>
-            </Button>
-          ) : null}
-
-          <Button
-            variant={stale ? 'success' : 'outline'}
-            size="sm"
-            onClick={saveAndCompileNow}
-            disabled={busy}
-            title={stale ? 'The preview is out of date (⌘S)' : 'Recompile (⌘S)'}
-          >
-            {compileState === 'compiling' ? <Loader2 className="animate-spin" /> : <Play />}
-            Recompile
-          </Button>
-
-          <Button variant="secondary" size="sm" onClick={download} disabled={busy}>
-            <Download />
-            <span className="hidden sm:inline">PDF</span>
-          </Button>
         </div>
       </div>
 
@@ -605,7 +587,7 @@ export function ResumeEditor({
         ) : null}
 
         <Group orientation="horizontal" className="h-full overflow-hidden">
-          <Panel defaultSize="50%" minSize="25%" className="overflow-hidden">
+          <Panel defaultSize={chatOpen ? '32%' : '50%'} minSize="20%" className="overflow-hidden">
             <EditorBoundary value={source} onChange={onSourceChange}>
               <CodePane
                 value={source}
@@ -619,7 +601,7 @@ export function ResumeEditor({
 
           <Separator className="w-1 cursor-col-resize bg-border transition-colors hover:bg-success data-[state=dragging]:bg-success" />
 
-          <Panel defaultSize="50%" minSize="25%" className="overflow-hidden">
+          <Panel defaultSize={chatOpen ? '38%' : '50%'} minSize="25%" className="overflow-hidden">
             <PdfPane
               url={pdfUrl}
               stale={stale}
@@ -627,12 +609,31 @@ export function ResumeEditor({
               errors={errors}
               log={log}
               message={notice}
+              actionsDisabled={busy}
+              onRecompile={saveAndCompileNow}
+              onDownload={() => void download()}
               onShowLog={() => setLogOpen(true)}
               onSelectError={(error) => {
                 if (error.line) setJumpTarget({ line: error.line, request: Date.now() })
               }}
             />
           </Panel>
+
+          {chatOpen ? (
+            <>
+              <Separator className="w-1 cursor-col-resize bg-border transition-colors hover:bg-success data-[state=dragging]:bg-success" />
+              <Panel defaultSize="30%" minSize="22%" className="overflow-hidden">
+                <ResumeChatPanel
+                  onClose={() => setChatOpen(false)}
+                  messages={chatMessages}
+                  pending={chatPending}
+                  canUndo={undoSource !== null}
+                  onSubmit={(instruction) => void runChatEdit(instruction)}
+                  onUndo={() => void undoChatEdit()}
+                />
+              </Panel>
+            </>
+          ) : null}
         </Group>
       </div>
 
@@ -688,16 +689,6 @@ export function ResumeEditor({
         }
         pending={regenerating}
         error={tailorError}
-      />
-
-      <ResumeChatDialog
-        open={chatOpen}
-        onOpenChange={setChatOpen}
-        messages={chatMessages}
-        pending={chatPending}
-        canUndo={undoSource !== null}
-        onSubmit={(instruction) => void runChatEdit(instruction)}
-        onUndo={() => void undoChatEdit()}
       />
 
       <Dialog open={logOpen} onOpenChange={setLogOpen}>
