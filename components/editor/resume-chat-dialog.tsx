@@ -10,6 +10,7 @@ export interface ResumeChatMessage {
   id: number
   role: 'user' | 'assistant' | 'error'
   text: string
+  changes?: Array<{ before: string; after: string }>
 }
 
 export function ResumeChatPanel({
@@ -89,11 +90,25 @@ export function ResumeChatPanel({
                   <Bot className="h-3.5 w-3.5" />
                 </span>
               ) : null}
-              <p className={message.role === 'user'
+              <div className={message.role === 'user'
                 ? 'max-w-[88%] rounded-xl rounded-br-sm bg-primary px-3 py-2 text-xs leading-relaxed text-primary-foreground'
-                : `min-w-0 text-xs leading-relaxed ${message.role === 'error' ? 'text-destructive' : 'text-foreground'}`}>
-                {message.text}
-              </p>
+                : `min-w-0 flex-1 text-xs leading-relaxed ${message.role === 'error' ? 'text-destructive' : 'text-foreground'}`}>
+                <p>{message.text}</p>
+                {message.changes?.length ? (
+                  <div className="mt-3 space-y-2">
+                    {message.changes.map((change, index) => (
+                      <div key={index} className="overflow-hidden rounded-md border border-border font-mono text-[10px] leading-relaxed">
+                        <pre className="max-h-28 overflow-auto whitespace-pre-wrap break-words bg-destructive/10 px-2 py-1.5 text-destructive">
+                          <span className="select-none opacity-60">− </span>{change.before}
+                        </pre>
+                        <pre className="max-h-28 overflow-auto whitespace-pre-wrap break-words border-t border-border bg-success/10 px-2 py-1.5 text-foreground">
+                          <span className="select-none text-success">+ </span>{change.after}
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
           ))}
           {pending ? (
