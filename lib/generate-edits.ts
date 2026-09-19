@@ -33,12 +33,15 @@ const UPDATE_RULES = `
 
 This request includes the user's current work log. Treat it as an incremental resume update:
 - Compare the log with the resume and edit only the entries affected by new information.
+- First identify every employer, job title, project, and date range in the work log that is absent from the resume.
+- Adding every genuinely new role or project is required and takes priority over improving existing entries. Never omit a new role merely to keep the resume to one page.
+- Preserve the employer, title, location, and dates for a new role exactly as written in the work log.
 - Add a new bullet to an existing role or project when the log contains a new accomplishment.
 - Add a complete role or project entry when it is genuinely new, matching the surrounding LaTeX exactly.
 - Update a metric in place when the log provides a newer figure for an existing accomplishment.
 - Preserve every unrelated line byte-for-byte. Do not rewrite the preamble, contact details, education, or unaffected entries.
 - Never add facts that are absent from both the resume and work log.
-- Keep the existing page budget. When necessary, replace the weakest related bullet instead of rewriting an entire section.
+- After all new roles are represented, keep the existing page budget when possible by replacing weak related bullets. Adding the new role is more important than preserving the page count.
 - If the log adds nothing, return an edit that replaces one affected unit with identical content is forbidden; instead explain that there is nothing new using an empty edits array.`
 
 export async function generateResumeEdits(

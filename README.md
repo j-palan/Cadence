@@ -255,7 +255,8 @@ Last updated: August 20, 2021
 - Tools: Git, Maven, Travis CI
 - Libraries: pandas, NumPy, Matplotlib
 
-## Pinecone Learning Labs — Software Engineering Intern
+## New experience — add this role to the resume
+### Pinecone Learning Labs — Software Engineering Intern
 Austin, TX | May 2021 -- August 2021
 - Built a React analytics dashboard used by 12 instructors to review student participation across 30 courses.
 - Developed FastAPI and PostgreSQL endpoints for course activity data, reducing dashboard load time by 42%.
