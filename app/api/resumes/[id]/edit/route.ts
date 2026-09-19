@@ -21,6 +21,47 @@ const bodySchema = z.object({
   workLog: z.string().trim().min(20).max(MAX_LOG_CHARS).optional(),
 })
 
+type RequiredEntry = { label: string; employer: string; title: string }
+
+function normalized(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\\&/g, '&')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+/** Pull structured "Company — Title" headings from an agent-maintained log. */
+function requiredNewEntries(workLog: string, source: string): RequiredEntry[] {
+  const normalizedSource = normalized(source)
+  const entries: RequiredEntry[] = []
+
+  for (const line of workLog.split(/\r?\n/)) {
+    const match = line.match(/^#{2,4}\s+(.+?)\s+(?:—|–|\|)\s+(.+?)\s*$/)
+    if (!match) continue
+
+    const employer = match[1].trim()
+    const title = match[2].trim()
+    if (/^(new|existing)\s+(experience|context|accomplishments?)/i.test(employer)) continue
+
+    const employerPresent = normalizedSource.includes(normalized(employer))
+    const titlePresent = normalizedSource.includes(normalized(title))
+    if (!employerPresent || !titlePresent) {
+      entries.push({ label: `${employer} — ${title}`, employer, title })
+    }
+  }
+
+  return entries
+}
+
+function missingEntries(source: string, entries: RequiredEntry[]): RequiredEntry[] {
+  const normalizedSource = normalized(source)
+  return entries.filter((entry) =>
+    !normalizedSource.includes(normalized(entry.employer)) ||
+    !normalizedSource.includes(normalized(entry.title)),
+  )
+}
+
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 })
@@ -48,13 +89,42 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   try {
     const engine = await resolveEngine(session.user.id)
+    const requiredEntries = body.data.workLog
+      ? requiredNewEntries(body.data.workLog, body.data.source)
+      : []
     const plan = await generateResumeEdits(
       body.data.source,
       body.data.instruction,
       engine,
       { jobDescription: body.data.jobDescription, workLog: body.data.workLog },
     )
-    const latexSource = applyResumeEdits(body.data.source, plan.edits)
+    let latexSource = applyResumeEdits(body.data.source, plan.edits)
+    let message = plan.message
+    const edits = [...plan.edits]
+
+    let missing = missingEntries(latexSource, requiredEntries)
+    if (body.data.workLog && missing.length > 0) {
+      const retry = await generateResumeEdits(
+        latexSource,
+        `Add these missing roles to the Experience section now: ${missing.map((entry) => entry.label).join('; ')}. Preserve their employer, title, location, dates, and strongest supplied accomplishments. Do not make any other changes.`,
+        engine,
+        { workLog: body.data.workLog },
+      )
+      latexSource = applyResumeEdits(latexSource, retry.edits)
+      edits.push(...retry.edits)
+      message = `${plan.message} ${retry.message}`.trim()
+      missing = missingEntries(latexSource, requiredEntries)
+    }
+
+    if (missing.length > 0) {
+      return NextResponse.json(
+        {
+          error: `The update did not add the required new role${missing.length === 1 ? '' : 's'} (${missing.map((entry) => entry.label).join(', ')}), so nothing was saved. Try again or add the role with Ask AI.`,
+        },
+        { status: 422 },
+      )
+    }
+
     const compiled = await compileLatex(latexSource)
 
     if (!compiled.ok) {
@@ -77,9 +147,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     return NextResponse.json({
       source: latexSource,
-      message: plan.message,
-      editCount: plan.edits.length,
-      changes: plan.edits.map((edit) => ({ before: edit.find, after: edit.replace })),
+      message,
+      editCount: edits.length,
+      changes: edits.map((edit) => ({ before: edit.find, after: edit.replace })),
     })
   } catch (error) {
     if (error instanceof EngineNotFoundError) {
