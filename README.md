@@ -190,6 +190,143 @@ How keys are handled:
    and the full TeX log is one click away. *PDF* downloads what the engine
    produced.
 
+## Demo recording inputs
+
+These fictional inputs are written for the Jake Ryan resume bundled with
+Cadence. They tell one consistent story, so you can record the create, update,
+tailor, and AI chat flows without preparing separate examples.
+
+### Work log
+
+Paste this into **Create from log**:
+
+```markdown
+# Resume log
+Last updated: June 12, 2021
+
+## Skills & Technologies
+- Languages: Java, Python, C/C++, SQL, JavaScript, HTML/CSS, R
+- Frameworks: React, Node.js, Flask, FastAPI, JUnit, Material-UI
+- Data and infrastructure: PostgreSQL, Redis, Celery, Docker, Google Cloud Platform
+- Tools: Git, Maven, Travis CI
+- Libraries: pandas, NumPy, Matplotlib
+
+## Texas A&M University — Undergraduate Research Assistant
+- Built a FastAPI and PostgreSQL REST API that stores data imported from learning management systems.
+- Developed a full-stack Flask and React application for analyzing collaboration across GitHub repositories.
+- Containerized the application with Docker and created visualizations for classroom GitHub activity.
+
+## Southwestern University — IT Support Specialist
+- Diagnosed hardware and software issues for students, faculty, and staff.
+- Set up and maintained campus computers, classroom equipment, and 200 printers.
+- Coordinated computer deployments with campus managers.
+
+## Southwestern University — Artificial Intelligence Research Assistant
+- Researched procedural generation methods for video game dungeons inspired by The Legend of Zelda.
+- Built a Java game for evaluating generated dungeons and contributed more than 50,000 lines of code through Git.
+- Conducted a human-subject study, wrote an eight-page paper, and presented the research at the World Conference on Computational Intelligence.
+
+## Gitlytics
+- Built a full-stack analytics application with a Flask REST API, React, and PostgreSQL.
+- Implemented GitHub OAuth to import repository data.
+- Used Celery and Redis to process analysis jobs asynchronously.
+- Visualized repository activity to help instructors understand student collaboration.
+
+## Simple Paintball
+- Developed a Java Minecraft server plugin with the Spigot API and Maven.
+- Reached more than 2,000 downloads and maintained an average 4.5/5 rating.
+- Automated release builds with Travis CI and used administrator feedback to prioritize features.
+```
+
+### Updated work log
+
+Paste this into **Update from log** after generating the first resume. It adds a
+new job plus three new accomplishments, while the remaining context helps the
+model update the correct entries without rewriting unrelated sections.
+
+```markdown
+# Resume log
+Last updated: August 20, 2021
+
+## Skills & Technologies
+- Languages: Java, Python, C/C++, SQL, JavaScript, HTML/CSS, R
+- Frameworks: React, Node.js, Flask, FastAPI, JUnit, Material-UI
+- Data and infrastructure: PostgreSQL, Redis, Celery, Docker, Google Cloud Platform
+- Tools: Git, Maven, Travis CI
+- Libraries: pandas, NumPy, Matplotlib
+
+## Pinecone Learning Labs — Software Engineering Intern
+Austin, TX | May 2021 -- August 2021
+- Built a React analytics dashboard used by 12 instructors to review student participation across 30 courses.
+- Developed FastAPI and PostgreSQL endpoints for course activity data, reducing dashboard load time by 42%.
+- Containerized the application with Docker and added Travis CI checks for every pull request.
+- Worked with instructors to turn weekly feedback into product improvements and bug fixes.
+
+## New accomplishments
+- Added background processing to Gitlytics with Celery and Redis, cutting large repository import time from 90 seconds to 24 seconds.
+- Added PostgreSQL indexes and pagination to the research API, reducing median response time by 38% on the classroom dataset.
+- Created troubleshooting documentation for the campus help desk that reduced repeat printer tickets by 20% during the fall rollout.
+
+## Existing context
+- Gitlytics is a Flask, React, and PostgreSQL application that imports repository data through GitHub OAuth.
+- The Texas A&M research API uses FastAPI and PostgreSQL for learning-management-system data.
+- The Southwestern IT role supports campus computers, classroom equipment, and 200 printers.
+```
+
+### Job posting
+
+Paste this into **Tailor to a job**:
+
+```text
+Software Engineer — University Products
+CampusLoop | Austin, TX | Full-time
+
+CampusLoop builds collaboration and analytics tools used by instructors and
+students. We are looking for an early-career software engineer who enjoys
+working across a React frontend and Python services.
+
+What you will do
+- Build accessible product features with React and JavaScript.
+- Design and maintain Python REST APIs using Flask or FastAPI.
+- Model and query application data in PostgreSQL.
+- Develop background jobs for data imports and analysis.
+- Integrate third-party services using OAuth and documented APIs.
+- Use Git, automated tests, continuous integration, and code review to ship
+  reliable changes.
+- Work with instructors and support teams to turn feedback into improvements.
+
+What we are looking for
+- Experience building full-stack web applications.
+- Working knowledge of Python, JavaScript, SQL, React, and PostgreSQL.
+- Familiarity with Docker and cloud deployment.
+- Clear written communication and a collaborative approach to debugging.
+
+Nice to have
+- Celery or Redis experience.
+- Experience with GitHub data or education technology.
+- Experience creating analytics or data visualizations.
+```
+
+### AI chat edit
+
+Open **Edit with AI** and send:
+
+```text
+Make the Gitlytics project the strongest match for a full-stack software
+engineering role. Lead with the measurable import-time improvement, emphasize
+React, Flask, PostgreSQL, GitHub OAuth, Celery, and Redis, and keep it to three
+concise bullets. Do not add any skills or results that are not already in the
+resume.
+```
+
+For a second short interaction, send:
+
+```text
+Move Technical Skills directly below Education and put the technologies from
+the CampusLoop posting first within each existing skills list. Keep every
+technology already listed.
+```
+
 ---
 
 ## Running it

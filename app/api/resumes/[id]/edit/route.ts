@@ -3,8 +3,8 @@ import { z } from 'zod'
 
 import { auth } from '@/auth'
 import { resolveEngine } from '@/lib/ai/engine'
-import { getResume, updateResumeSource } from '@/lib/db/queries'
-import { describeGenerationError, MAX_EXISTING_SOURCE_CHARS } from '@/lib/generate'
+import { createLogImport, getResume, updateResumeSource } from '@/lib/db/queries'
+import { describeGenerationError, MAX_EXISTING_SOURCE_CHARS, MAX_LOG_CHARS } from '@/lib/generate'
 import { generateResumeEdits } from '@/lib/generate-edits'
 import { compileLatex, EngineNotFoundError } from '@/lib/latex'
 import { limitGenerate } from '@/lib/ratelimit'
@@ -18,6 +18,7 @@ const bodySchema = z.object({
   instruction: z.string().trim().min(2).max(4_000),
   source: z.string().min(1).max(MAX_EXISTING_SOURCE_CHARS),
   jobDescription: z.string().trim().min(50).max(20_000).optional(),
+  workLog: z.string().trim().min(20).max(MAX_LOG_CHARS).optional(),
 })
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
@@ -51,7 +52,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       body.data.source,
       body.data.instruction,
       engine,
-      body.data.jobDescription,
+      { jobDescription: body.data.jobDescription, workLog: body.data.workLog },
     )
     const latexSource = applyResumeEdits(body.data.source, plan.edits)
     const compiled = await compileLatex(latexSource)
@@ -66,8 +67,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
       )
     }
 
-    const saved = await updateResumeSource(session.user.id, existing.id, latexSource)
-    if (!saved) return NextResponse.json({ error: 'Resume not found.' }, { status: 404 })
+    if (latexSource !== body.data.source) {
+      const saved = await updateResumeSource(session.user.id, existing.id, latexSource)
+      if (!saved) return NextResponse.json({ error: 'Resume not found.' }, { status: 404 })
+    }
+    if (body.data.workLog) {
+      await createLogImport(session.user.id, { resumeId: existing.id, rawContent: body.data.workLog })
+    }
 
     return NextResponse.json({
       source: latexSource,

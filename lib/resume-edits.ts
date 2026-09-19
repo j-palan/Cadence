@@ -5,7 +5,7 @@ export const resumeEditResponseSchema = z.object({
   edits: z.array(z.object({
     find: z.string().min(1).max(20_000),
     replace: z.string().max(20_000),
-  })).min(1).max(30),
+  })).max(30),
 })
 
 export type ResumeEdit = z.infer<typeof resumeEditResponseSchema>['edits'][number]
@@ -29,6 +29,7 @@ export function parseResumeEditResponse(raw: string) {
  * it is applied, otherwise guessing could silently modify the wrong section.
  */
 export function applyResumeEdits(source: string, edits: ResumeEdit[]): string {
+  if (edits.length === 0) return source
   let next = source
 
   for (const edit of edits) {

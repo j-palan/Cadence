@@ -17,7 +17,6 @@ import {
   Target,
 } from 'lucide-react'
 
-import { GeneratingOverlay } from '@/components/generating-overlay'
 import { ApiKeyDialog, hasEnabledAi } from '@/components/ai/api-key-dialog'
 import { EditorBoundary } from '@/components/editor/editor-boundary'
 import { PdfPane } from '@/components/editor/pdf-pane'
@@ -38,8 +37,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import type { AiSettings } from '@/components/settings/model-settings'
-import { readGenerateStream } from '@/lib/generate-stream'
-import type { GenerationMode } from '@/lib/prompts'
 import type { CompileFailureBody, LatexError } from '@/lib/latex-client'
 import { getCachedPreview, setCachedPreview } from '@/lib/pdf-preview-cache'
 import { templateName } from '@/lib/templates/meta'
@@ -89,13 +86,10 @@ export function ResumeEditor({
   const [log, setLog] = useState('')
   const [notice, setNotice] = useState<string | null>('Compiling for the first time…')
   const [logOpen, setLogOpen] = useState(false)
-  const [regenerating, setRegenerating] = useState(false)
   const [tailorOpen, setTailorOpen] = useState(false)
   const [tailorError, setTailorError] = useState<string | null>(null)
   const [updateOpen, setUpdateOpen] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
-  // Which pass is running, so the overlay can name it.
-  const [activeMode, setActiveMode] = useState<GenerationMode | null>(null)
   const [engine, setEngine] = useState<string | null>(null)
   // True when the source has changed since the last successful compile, so the
   // preview on screen is out of date.
@@ -336,89 +330,9 @@ export function ResumeEditor({
     URL.revokeObjectURL(url)
   }
 
-  /**
-   * Runs an AI pass over the document — `update` against a freshly pasted log,
-   * or `tailor` toward a job description.
-   *
-   * Ownership of the resume is still checked server-side from resumeId; the
-   * client only supplies the new material.
-   */
-  async function runGeneration(
-    mode: Exclude<GenerationMode, 'create'>,
-    payload: { log?: string; jobDescription?: string; customInstructions?: string } = {},
-  ) {
-    if (!hasEnabledAi(aiSettings)) {
-      setApiKeyOpen(true)
-      return
-    }
-
-    setRegenerating(true)
-    setActiveMode(mode)
-    setNotice(null)
-    setTailorError(null)
-    setUpdateError(null)
-
-    // Close the dialog straight away so the overlay is visible. The dialog
-    // components keep their own text state, so reopening on failure restores
-    // whatever was pasted.
-    setUpdateOpen(false)
-    setTailorOpen(false)
-
-    try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode,
-          resumeId: resume.id,
-          template: resume.template,
-          ...payload,
-        }),
-      })
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as {
-          error?: string
-          code?: string
-        } | null
-        if (body?.code === 'API_KEY_REQUIRED') {
-          setAiSettings((current) => ({ ...current, enabled: false }))
-          setApiKeyOpen(true)
-          return
-        }
-        throw new Error(body?.error ?? `Generation failed (${response.status})`)
-      }
-
-      const result = await readGenerateStream(response, setSource)
-      if (result.error) throw new Error(result.error)
-
-      setSource(result.source)
-      sourceRef.current = result.source
-      pendingRef.current = null
-      setSaveState('saved')
-      await compile()
-      setStale(false)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Generation failed.'
-      // Reopen the dialog with the error so the pasted text is not lost.
-      if (mode === 'tailor') {
-        setTailorError(message)
-        setTailorOpen(true)
-      } else if (mode === 'update') {
-        setUpdateError(message)
-        setUpdateOpen(true)
-      } else {
-        setNotice(message)
-      }
-    } finally {
-      setRegenerating(false)
-      setActiveMode(null)
-    }
-  }
-
   async function runChatEdit(
     instruction: string,
-    options: { jobDescription?: string; userMessage?: string } = {},
+    options: { jobDescription?: string; workLog?: string; userMessage?: string } = {},
   ) {
     if (!hasEnabledAi(aiSettings)) {
       setChatOpen(false)
@@ -444,6 +358,7 @@ export function ResumeEditor({
           instruction,
           source: before,
           jobDescription: options.jobDescription,
+          workLog: options.workLog,
         }),
       })
       const body = (await response.json().catch(() => null)) as {
@@ -510,6 +425,21 @@ export function ResumeEditor({
     })
   }
 
+  function runUpdateEdit(workLog: string, customInstructions: string) {
+    setUpdateError(null)
+    setUpdateOpen(false)
+    setChatOpen(true)
+    const instruction = customInstructions.trim()
+      ? `Merge only new accomplishments from the work log into this resume. Also follow these instructions: ${customInstructions.trim()}`
+      : 'Merge only new accomplishments from the work log into the relevant resume entries.'
+    void runChatEdit(instruction, {
+      workLog,
+      userMessage: customInstructions.trim()
+        ? `Update this resume from my latest work log. ${customInstructions.trim()}`
+        : 'Update this resume from my latest work log.',
+    })
+  }
+
   async function undoChatEdit() {
     if (!undoSource || chatPending) return
     const previous = undoSource
@@ -547,7 +477,7 @@ export function ResumeEditor({
     }
   }
 
-  const busy = compileState === 'compiling' || regenerating || chatPending
+  const busy = compileState === 'compiling' || chatPending
 
   return (
     <div className="flex h-[calc(100dvh-4rem-1px)] flex-col">
@@ -602,7 +532,7 @@ export function ResumeEditor({
             disabled={busy}
             title="Merge anything new in your log into this resume"
           >
-            {regenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
+            {chatPending ? <Loader2 className="animate-spin" /> : <Sparkles />}
             <span className="hidden md:inline">Update</span>
           </Button>
 
@@ -622,10 +552,6 @@ export function ResumeEditor({
       </div>
 
       <div className="relative flex-1 overflow-hidden">
-        {regenerating && activeMode ? (
-          <GeneratingOverlay mode={activeMode} source={source} />
-        ) : null}
-
         <Group orientation="horizontal" className="h-full overflow-hidden">
           <Panel defaultSize={chatOpen ? '32%' : '50%'} minSize="20%" className="overflow-hidden">
             <EditorBoundary value={source} onChange={onSourceChange}>
@@ -700,10 +626,8 @@ export function ResumeEditor({
           setUpdateOpen(next)
           if (!next) setUpdateError(null)
         }}
-        onSubmit={(log, customInstructions) =>
-          void runGeneration('update', { log, customInstructions: customInstructions || undefined })
-        }
-        pending={regenerating || chatPending}
+        onSubmit={runUpdateEdit}
+        pending={chatPending}
         error={updateError}
         lastImportedAt={lastLogImportedAt}
       />
@@ -724,7 +648,7 @@ export function ResumeEditor({
         onSubmit={(jobDescription, customInstructions) =>
           runTailorEdit(jobDescription, customInstructions)
         }
-        pending={regenerating || chatPending}
+        pending={chatPending}
         error={tailorError}
       />
 

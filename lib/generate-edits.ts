@@ -29,18 +29,32 @@ This request includes a job description. Treat it as a narrow tailoring pass:
 - Do not add or remove bullets, entries, or sections. Do not reorder them. Only items inside a skills list may be reordered.
 - Preserve concrete details even when the posting does not mention them.`
 
+const UPDATE_RULES = `
+
+This request includes the user's current work log. Treat it as an incremental resume update:
+- Compare the log with the resume and edit only the entries affected by new information.
+- Add a new bullet to an existing role or project when the log contains a new accomplishment.
+- Add a complete role or project entry when it is genuinely new, matching the surrounding LaTeX exactly.
+- Update a metric in place when the log provides a newer figure for an existing accomplishment.
+- Preserve every unrelated line byte-for-byte. Do not rewrite the preamble, contact details, education, or unaffected entries.
+- Never add facts that are absent from both the resume and work log.
+- Keep the existing page budget. When necessary, replace the weakest related bullet instead of rewriting an entire section.
+- If the log adds nothing, return an edit that replaces one affected unit with identical content is forbidden; instead explain that there is nothing new using an empty edits array.`
+
 export async function generateResumeEdits(
   source: string,
   instruction: string,
   engine: ResolvedEngine,
-  jobDescription?: string,
+  context: { jobDescription?: string; workLog?: string } = {},
 ) {
+  const { jobDescription, workLog } = context
   const user = [
     '<request>',
     instruction,
     '</request>',
     '',
     ...(jobDescription ? ['<job_description>', jobDescription, '</job_description>', ''] : []),
+    ...(workLog ? ['<work_log>', workLog, '</work_log>', ''] : []),
     '<resume>',
     source,
     '</resume>',
@@ -52,7 +66,7 @@ export async function generateResumeEdits(
     model: engine.model,
     apiKey: engine.apiKey,
     baseUrl: engine.baseUrl,
-    system: `${SYSTEM}${jobDescription ? TAILOR_RULES : ''}`,
+    system: `${SYSTEM}${jobDescription ? TAILOR_RULES : ''}${workLog ? UPDATE_RULES : ''}`,
     user,
     maxTokens: MAX_OUTPUT_TOKENS,
   })) {
