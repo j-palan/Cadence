@@ -10,6 +10,13 @@ export const resumeEditResponseSchema = z.object({
 
 export type ResumeEdit = z.infer<typeof resumeEditResponseSchema>['edits'][number]
 
+export class ResumeEditTargetError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ResumeEditTargetError'
+  }
+}
+
 /** Parse JSON even when a provider ignores the no-fences instruction. */
 export function parseResumeEditResponse(raw: string) {
   const unfenced = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
@@ -35,9 +42,11 @@ export function applyResumeEdits(source: string, edits: ResumeEdit[]): string {
   for (const edit of edits) {
     const first = next.indexOf(edit.find)
     const second = first < 0 ? -1 : next.indexOf(edit.find, first + edit.find.length)
-    if (first < 0) throw new Error('An AI edit targeted text that is no longer in the resume. Try again.')
+    if (first < 0) {
+      throw new ResumeEditTargetError('An AI edit targeted text that is no longer in the resume.')
+    }
     if (second >= 0) {
-      throw new Error('An AI edit matched more than one place, so it was not applied. Be more specific.')
+      throw new ResumeEditTargetError('An AI edit matched more than one place.')
     }
     next = `${next.slice(0, first)}${edit.replace}${next.slice(first + edit.find.length)}`
   }

@@ -2,7 +2,11 @@ import 'server-only'
 
 import { streamFrom } from './ai/providers'
 import type { ResolvedEngine } from './ai/engine'
-import { parseResumeEditResponse } from './resume-edits'
+import {
+  applyResumeEdits,
+  parseResumeEditResponse,
+  ResumeEditTargetError,
+} from './resume-edits'
 
 const MAX_OUTPUT_TOKENS = 12_000
 
@@ -78,4 +82,27 @@ export async function generateResumeEdits(
   }
 
   return parseResumeEditResponse(raw)
+}
+
+/** Retry once when a provider chooses a repeated or stale LaTeX fragment. */
+export async function generateAndApplyResumeEdits(
+  source: string,
+  instruction: string,
+  engine: ResolvedEngine,
+  context: { jobDescription?: string; workLog?: string } = {},
+) {
+  let plan = await generateResumeEdits(source, instruction, engine, context)
+  try {
+    return { plan, source: applyResumeEdits(source, plan.edits) }
+  } catch (error) {
+    if (!(error instanceof ResumeEditTargetError)) throw error
+
+    plan = await generateResumeEdits(
+      source,
+      `${instruction}\n\nYour previous edit plan could not be applied because a find value was repeated or stale. Try again. Every find value must include enough surrounding LaTeX—such as its heading, entry, or complete command—to occur exactly once in the resume.`,
+      engine,
+      context,
+    )
+    return { plan, source: applyResumeEdits(source, plan.edits) }
+  }
 }

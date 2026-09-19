@@ -5,10 +5,9 @@ import { auth } from '@/auth'
 import { resolveEngine } from '@/lib/ai/engine'
 import { createLogImport, getResume, updateResumeSource } from '@/lib/db/queries'
 import { describeGenerationError, MAX_EXISTING_SOURCE_CHARS, MAX_LOG_CHARS } from '@/lib/generate'
-import { generateResumeEdits } from '@/lib/generate-edits'
+import { generateAndApplyResumeEdits } from '@/lib/generate-edits'
 import { compileLatex, countPdfPages, EngineNotFoundError } from '@/lib/latex'
 import { limitGenerate } from '@/lib/ratelimit'
-import { applyResumeEdits } from '@/lib/resume-edits'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -92,27 +91,27 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const requiredEntries = body.data.workLog
       ? requiredNewEntries(body.data.workLog, body.data.source)
       : []
-    const plan = await generateResumeEdits(
+    const initial = await generateAndApplyResumeEdits(
       body.data.source,
       body.data.instruction,
       engine,
       { jobDescription: body.data.jobDescription, workLog: body.data.workLog },
     )
-    let latexSource = applyResumeEdits(body.data.source, plan.edits)
-    let message = plan.message
-    const edits = [...plan.edits]
+    let latexSource = initial.source
+    let message = initial.plan.message
+    const edits = [...initial.plan.edits]
 
     let missing = missingEntries(latexSource, requiredEntries)
     if (body.data.workLog && missing.length > 0) {
-      const retry = await generateResumeEdits(
+      const retry = await generateAndApplyResumeEdits(
         latexSource,
         `Add these missing roles to the Experience section now: ${missing.map((entry) => entry.label).join('; ')}. Preserve their employer, title, location, dates, and strongest supplied accomplishments. Do not make any other changes.`,
         engine,
         { workLog: body.data.workLog },
       )
-      latexSource = applyResumeEdits(latexSource, retry.edits)
-      edits.push(...retry.edits)
-      message = `${plan.message} ${retry.message}`.trim()
+      latexSource = retry.source
+      edits.push(...retry.plan.edits)
+      message = `${message} ${retry.plan.message}`.trim()
       missing = missingEntries(latexSource, requiredEntries)
     }
 
@@ -139,14 +138,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     let pageCount = await countPdfPages(compiled.pdf)
     if (body.data.workLog && pageCount > 1) {
-      const compact = await generateResumeEdits(
+      const compact = await generateAndApplyResumeEdits(
         latexSource,
         `Make this resume exactly one page while preserving every Experience entry, especially these newly added roles: ${requiredEntries.map((entry) => entry.label).join('; ') || 'all new roles'}. Condense the Projects section first by combining overlapping bullets, shortening verbose bullets, and removing the weakest project details. Do not remove a new role, change any fact, shrink the font, alter margins, or rewrite unrelated sections.`,
         engine,
       )
-      latexSource = applyResumeEdits(latexSource, compact.edits)
-      edits.push(...compact.edits)
-      message = `${message} ${compact.message}`.trim()
+      latexSource = compact.source
+      edits.push(...compact.plan.edits)
+      message = `${message} ${compact.plan.message}`.trim()
 
       missing = missingEntries(latexSource, requiredEntries)
       if (missing.length > 0) {
