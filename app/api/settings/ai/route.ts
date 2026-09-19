@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { auth } from '@/auth'
 import { PROVIDERS, isValidPair } from '@/lib/ai/catalog'
 import { parseBaseUrl } from '@/lib/ai/endpoint'
-import { encryptSecret, keyHint } from '@/lib/ai/crypto'
+import { decryptSecret, encryptSecret, keyHint } from '@/lib/ai/crypto'
 import { verifyCredentials } from '@/lib/ai/providers'
 import {
   clearAiCredentials,
@@ -97,6 +97,47 @@ export async function PATCH(request: Request) {
     if (body.enabled && !existing.keyCipher) {
       return NextResponse.json({ error: 'Add a key first.' }, { status: 409 })
     }
+
+    // Do not claim the key is enabled until the same checks used by generation
+    // succeed. This prevents a loop where the UI turns on an unreadable or
+    // rejected key and the next AI request immediately asks for one again.
+    if (body.enabled) {
+      if (
+        !existing.provider ||
+        !existing.model ||
+        !isValidPair(existing.provider, existing.model) ||
+        (existing.provider === 'other' && !existing.baseUrl)
+      ) {
+        return NextResponse.json(
+          { error: 'Your saved AI configuration is no longer valid. Re-enter the provider, model, and key.' },
+          { status: 409 },
+        )
+      }
+
+      let apiKey: string
+      try {
+        apiKey = decryptSecret(existing.keyCipher!)
+      } catch {
+        return NextResponse.json(
+          { error: 'Your saved API key can no longer be decrypted. Re-enter it to continue.' },
+          { status: 409 },
+        )
+      }
+
+      const check = await verifyCredentials(
+        existing.provider,
+        existing.model,
+        apiKey,
+        existing.baseUrl ?? undefined,
+      )
+      if (!check.ok) {
+        return NextResponse.json(
+          { error: `${check.message} Re-enter the key to continue.` },
+          { status: 409 },
+        )
+      }
+    }
+
     await setAiEnabled(session.user.id, body.enabled)
     return NextResponse.json({ enabled: body.enabled })
   }

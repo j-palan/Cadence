@@ -77,6 +77,7 @@ export function ModelSettings({
       router.refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Something went wrong.')
+      if (action === 'toggle') setEditing(true)
     } finally {
       setPending(null)
     }
