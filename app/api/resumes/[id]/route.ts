@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
-import { deleteResume, updateResume } from '@/lib/db/queries'
+import { deleteResume, DuplicateResumeNameError, updateResume } from '@/lib/db/queries'
 import { isTemplateId } from '@/lib/templates/meta'
 
 const paramsSchema = z.object({ id: z.string().uuid() })
@@ -36,7 +36,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   // Ownership rides in the where clause; a null return covers both
   // "no such row" and "not yours".
-  const resume = await updateResume(session.user.id, id.data.id, parsed.data)
+  let resume
+  try {
+    resume = await updateResume(session.user.id, id.data.id, parsed.data)
+  } catch (error) {
+    if (error instanceof DuplicateResumeNameError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+    throw error
+  }
   if (!resume) {
     return NextResponse.json({ error: 'Not found.' }, { status: 404 })
   }

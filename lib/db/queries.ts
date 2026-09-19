@@ -4,6 +4,22 @@ import { db } from './index'
 import { logImports, resumes, users } from './schema'
 import type { LogImport, Resume, User } from './schema'
 
+export class DuplicateResumeNameError extends Error {
+  constructor() {
+    super('A resume with this name already exists.')
+    this.name = 'DuplicateResumeNameError'
+  }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  let current: unknown = error
+  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth += 1) {
+    if ('code' in current && current.code === '23505') return true
+    current = 'cause' in current ? current.cause : null
+  }
+  return false
+}
+
 /**
  * The app's entire data-access surface.
  *
@@ -188,16 +204,21 @@ export async function createResume(
   userId: string,
   input: { name?: string; template: string; latexSource: string },
 ): Promise<Resume> {
-  const [row] = await db
-    .insert(resumes)
-    .values({
-      userId,
-      name: input.name ?? 'My Resume',
-      template: input.template,
-      latexSource: input.latexSource,
-    })
-    .returning()
-  return row
+  try {
+    const [row] = await db
+      .insert(resumes)
+      .values({
+        userId,
+        name: input.name?.trim() || 'My Resume',
+        template: input.template,
+        latexSource: input.latexSource,
+      })
+      .returning()
+    return row
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new DuplicateResumeNameError()
+    throw error
+  }
 }
 
 export async function updateResumeSource(
@@ -218,12 +239,18 @@ export async function updateResume(
   id: string,
   patch: { name?: string; latexSource?: string; template?: string },
 ): Promise<Resume | null> {
-  const [row] = await db
-    .update(resumes)
-    .set({ ...patch, updatedAt: new Date() })
-    .where(and(eq(resumes.id, id), eq(resumes.userId, userId)))
-    .returning()
-  return row ?? null
+  try {
+    const normalizedPatch = patch.name === undefined ? patch : { ...patch, name: patch.name.trim() }
+    const [row] = await db
+      .update(resumes)
+      .set({ ...normalizedPatch, updatedAt: new Date() })
+      .where(and(eq(resumes.id, id), eq(resumes.userId, userId)))
+      .returning()
+    return row ?? null
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new DuplicateResumeNameError()
+    throw error
+  }
 }
 
 export async function deleteResume(userId: string, id: string): Promise<boolean> {

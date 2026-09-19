@@ -102,7 +102,10 @@ export function ImportForm({ aiSettings: initialAiSettings }: { aiSettings: AiSe
         }),
       })
 
-      if (!response.ok) throw new Error('Could not create a resume.')
+      if (!response.ok) {
+        const failure = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(failure?.error ?? 'Could not create a resume.')
+      }
 
       const body = (await response.json()) as { id: string }
       router.push(`/resume/${body.id}`)

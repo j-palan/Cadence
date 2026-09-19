@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
-import { createResume } from '@/lib/db/queries'
+import { createResume, DuplicateResumeNameError } from '@/lib/db/queries'
 import { DEFAULT_TEMPLATE, isTemplateId } from '@/lib/templates/meta'
 import { getTemplateSource } from '@/lib/templates/server'
 
@@ -28,11 +28,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 })
   }
 
-  const resume = await createResume(session.user.id, {
-    name: parsed.data.name,
-    template: parsed.data.template,
-    latexSource: getTemplateSource(parsed.data.template),
-  })
+  try {
+    const resume = await createResume(session.user.id, {
+      name: parsed.data.name,
+      template: parsed.data.template,
+      latexSource: getTemplateSource(parsed.data.template),
+    })
 
-  return NextResponse.json({ id: resume.id }, { status: 201 })
+    return NextResponse.json({ id: resume.id }, { status: 201 })
+  } catch (error) {
+    if (error instanceof DuplicateResumeNameError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+    throw error
+  }
 }

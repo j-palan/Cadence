@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import {
   boolean,
   index,
@@ -6,6 +7,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
 import type { AdapterAccount } from 'next-auth/adapters'
@@ -108,6 +110,10 @@ export const resumes = pgTable(
   (t) => ({
     // Every resume query filters on userId, so it carries an index.
     userIdx: index('resumes_user_id_idx').on(t.userId),
+    userNameUnique: uniqueIndex('resumes_user_name_unique').on(
+      t.userId,
+      sql`lower(btrim(${t.name}))`,
+    ),
   }),
 )
 

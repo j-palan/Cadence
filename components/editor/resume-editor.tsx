@@ -111,6 +111,7 @@ export function ResumeEditor({
   const compileSeq = useRef(0)
   const pdfUrlRef = useRef<string | null>(null)
   const sourceRef = useRef(source)
+  const savedNameRef = useRef(resume.name)
 
   sourceRef.current = source
 
@@ -295,12 +296,21 @@ export function ResumeEditor({
   }, [compile, save])
 
   async function renameResume(nextName: string) {
-    setName(nextName)
-    await fetch(`/api/resumes/${resume.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: nextName.trim() || 'My Resume' }),
-    }).catch(() => setSaveState('error'))
+    const normalizedName = nextName.trim() || 'My Resume'
+    setName(normalizedName)
+    try {
+      const response = await fetch(`/api/resumes/${resume.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: normalizedName }),
+      })
+      const body = (await response.json().catch(() => null)) as { error?: string } | null
+      if (!response.ok) throw new Error(body?.error ?? 'Could not rename this resume.')
+      savedNameRef.current = normalizedName
+    } catch (error) {
+      setName(savedNameRef.current)
+      setNotice(error instanceof Error ? error.message : 'Could not rename this resume.')
+    }
   }
 
   async function download() {
