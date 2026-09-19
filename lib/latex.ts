@@ -45,6 +45,83 @@ const ENGINE_BINARIES: Record<Engine, string> = {
   pdflatex: process.env.PDFLATEX_PATH ?? 'pdflatex',
 }
 
+/** Metric-compatible fonts shipped with TeX for common proprietary desktop fonts. */
+const PORTABLE_FONT_FALLBACKS: Record<string, string> = {
+  'times new roman': 'TeX Gyre Termes',
+  times: 'TeX Gyre Termes',
+  arial: 'TeX Gyre Heros',
+  'helvetica neue': 'TeX Gyre Heros',
+  'courier new': 'TeX Gyre Cursor',
+  consolas: 'TeX Gyre Cursor',
+  cambria: 'TeX Gyre Pagella',
+  georgia: 'TeX Gyre Pagella',
+}
+
+function blankExceptNewlines(value: string): string {
+  return value.replace(/[^\r\n]/g, ' ')
+}
+
+/**
+ * Copying LaTeX from a rendered chat or rich-text page can wrap the document in
+ * `**` or a Markdown code fence. Ignore only wrapper-shaped text outside a
+ * complete document; arbitrary prose and malformed LaTeX still fail normally.
+ * Blanking instead of deleting keeps compiler line numbers aligned with the
+ * editor.
+ */
+function removeMarkdownDocumentWrappers(source: string): string {
+  const withoutBom = source.replace(/^\uFEFF/, ' ')
+  const documentStart = withoutBom.indexOf('\\documentclass')
+  if (documentStart < 0) return withoutBom
+
+  let result = withoutBom
+  const prefix = result.slice(0, documentStart)
+  if (/^[\s*_`]*(?:(?:latex|tex)\s*)?$/i.test(prefix)) {
+    result = `${blankExceptNewlines(prefix)}${result.slice(documentStart)}`
+  }
+
+  const endMarker = '\\end{document}'
+  const documentEnd = result.lastIndexOf(endMarker)
+  if (documentEnd >= 0) {
+    const suffixStart = documentEnd + endMarker.length
+    const suffix = result.slice(suffixStart)
+    if (/^[\s*_`]*$/.test(suffix)) {
+      result = `${result.slice(0, suffixStart)}${blankExceptNewlines(suffix)}`
+    }
+  }
+
+  return result
+}
+
+/** XeTeX emits Unicode mappings itself; these pdfTeX-only helpers crash it. */
+function removePdfTeXUnicodeSetup(source: string): string {
+  return source
+    .replace(
+      /^[ \t]*\\input\s*\{?glyphtounicode(?:\.tex)?\}?[ \t]*$/gim,
+      (line) => blankExceptNewlines(line),
+    )
+    .replace(
+      /^[ \t]*\\pdfgentounicode\s*=\s*1[ \t]*$/gim,
+      (line) => blankExceptNewlines(line),
+    )
+}
+
+function portableFontFallbacks(source: string): string {
+  function replace(match: string, prefix: string, font: string, suffix: string) {
+    const fallback = PORTABLE_FONT_FALLBACKS[font.trim().toLowerCase()]
+    return fallback ? `${prefix}${fallback}${suffix}` : match
+  }
+
+  return source
+    .replace(
+      /(\\(?:setmainfont|setsansfont|setmonofont|fontspec)\s*(?:\[[^\]]*\]\s*)?\{)([^{}]+)(\})/gi,
+      replace,
+    )
+    .replace(
+      /(\\(?:newfontfamily|newfontface)\s*\\[A-Za-z@]+\s*(?:\[[^\]]*\]\s*)?\{)([^{}]+)(\})/gi,
+      replace,
+    )
+}
+
 export class EngineNotFoundError extends Error {
   constructor() {
     super(
@@ -237,6 +314,10 @@ export function parseLatexLog(log: string): LatexError[] {
 
 function friendlyLatexMessage(message: string): string {
   const normalized = message.trim().replace(/\s+/g, ' ')
+  const missingFont = normalized.match(/font\s+["“]?([^"”]+)["”]?\s+cannot be found/i)
+  if (missingFont) {
+    return `The font “${missingFont[1].trim()}” is not available on the compiler. Choose a TeX font or another portable font.`
+  }
   if (/undefined control sequence/i.test(normalized)) {
     return 'Unknown LaTeX command. Check the command name and its leading backslash.'
   }
@@ -278,14 +359,19 @@ export async function compileLatex(source: string): Promise<CompileResult> {
   const pdfPath = join(dir, 'resume.pdf')
   const logPath = join(dir, 'resume.log')
   const startedAt = Date.now()
+  const compileSource = removeMarkdownDocumentWrappers(source)
 
   try {
-    await writeFile(texPath, source, 'utf8')
-
     let engine: Engine | null = null
     let output = ''
+    let sourceForEngine = compileSource
 
     for (const candidate of ['tectonic', 'pdflatex'] as const) {
+      sourceForEngine = candidate === 'tectonic'
+        ? removePdfTeXUnicodeSetup(compileSource)
+        : compileSource
+      await writeFile(texPath, sourceForEngine, 'utf8')
+
       // Tectonic reruns internally; pdflatex needs the passes driven here.
       const passes = candidate === 'tectonic' ? 1 : PASSES
       let spawnFailed = false
@@ -313,7 +399,32 @@ export async function compileLatex(source: string): Promise<CompileResult> {
 
     if (!engine) throw new EngineNotFoundError()
 
-    const log = [await readIfPresent(logPath), output].filter(Boolean).join('\n').trim()
+    let log = [await readIfPresent(logPath), output].filter(Boolean).join('\n').trim()
+
+    // Overleaf projects often name fonts installed on the author's computer or
+    // image. If fontspec reports one missing, retry with a TeX-distributed,
+    // metric-compatible substitute. The stored source stays exactly as pasted.
+    const fallbackSource = portableFontFallbacks(sourceForEngine)
+    if (fallbackSource !== sourceForEngine && /font[^\n]+cannot be found/i.test(log)) {
+      await Promise.all([
+        rm(pdfPath, { force: true }).catch(() => {}),
+        rm(logPath, { force: true }).catch(() => {}),
+      ])
+      await writeFile(texPath, fallbackSource, 'utf8')
+
+      const passes = engine === 'tectonic' ? 1 : PASSES
+      output = ''
+      for (let pass = 0; pass < passes; pass += 1) {
+        const result = await run(
+          ENGINE_BINARIES[engine],
+          argsFor(engine, texPath, dir),
+          { cwd: dir, timeout: COMPILE_TIMEOUT_MS },
+        )
+        output = `${result.stdout}\n${result.stderr}`
+      }
+      log = [await readIfPresent(logPath), output].filter(Boolean).join('\n').trim()
+    }
+
     const durationMs = Date.now() - startedAt
 
     let pdf: Buffer | null = null
