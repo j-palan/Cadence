@@ -41,7 +41,7 @@ This request includes the user's current work log. Treat it as an incremental re
 - Update a metric in place when the log provides a newer figure for an existing accomplishment.
 - Preserve every unrelated line byte-for-byte. Do not rewrite the preamble, contact details, education, or unaffected entries.
 - Never add facts that are absent from both the resume and work log.
-- After all new roles are represented, keep the existing page budget when possible by replacing weak related bullets. Adding the new role is more important than preserving the page count.
+- The final resume must remain one page. Preserve every new role and condense the Projects section first when space is needed: combine overlapping project bullets, shorten wording, or remove the weakest project bullet.
 - If the log adds nothing, return an edit that replaces one affected unit with identical content is forbidden; instead explain that there is nothing new using an empty edits array.`
 
 export async function generateResumeEdits(

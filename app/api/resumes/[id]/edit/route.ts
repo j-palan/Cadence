@@ -6,7 +6,7 @@ import { resolveEngine } from '@/lib/ai/engine'
 import { createLogImport, getResume, updateResumeSource } from '@/lib/db/queries'
 import { describeGenerationError, MAX_EXISTING_SOURCE_CHARS, MAX_LOG_CHARS } from '@/lib/generate'
 import { generateResumeEdits } from '@/lib/generate-edits'
-import { compileLatex, EngineNotFoundError } from '@/lib/latex'
+import { compileLatex, countPdfPages, EngineNotFoundError } from '@/lib/latex'
 import { limitGenerate } from '@/lib/ratelimit'
 import { applyResumeEdits } from '@/lib/resume-edits'
 
@@ -125,7 +125,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       )
     }
 
-    const compiled = await compileLatex(latexSource)
+    let compiled = await compileLatex(latexSource)
 
     if (!compiled.ok) {
       return NextResponse.json(
@@ -135,6 +135,41 @@ export async function POST(request: Request, { params }: { params: { id: string 
         },
         { status: 422 },
       )
+    }
+
+    let pageCount = await countPdfPages(compiled.pdf)
+    if (body.data.workLog && pageCount > 1) {
+      const compact = await generateResumeEdits(
+        latexSource,
+        `Make this resume exactly one page while preserving every Experience entry, especially these newly added roles: ${requiredEntries.map((entry) => entry.label).join('; ') || 'all new roles'}. Condense the Projects section first by combining overlapping bullets, shortening verbose bullets, and removing the weakest project details. Do not remove a new role, change any fact, shrink the font, alter margins, or rewrite unrelated sections.`,
+        engine,
+      )
+      latexSource = applyResumeEdits(latexSource, compact.edits)
+      edits.push(...compact.edits)
+      message = `${message} ${compact.message}`.trim()
+
+      missing = missingEntries(latexSource, requiredEntries)
+      if (missing.length > 0) {
+        return NextResponse.json(
+          { error: 'Condensing the resume removed a newly added role, so nothing was saved.' },
+          { status: 422 },
+        )
+      }
+
+      compiled = await compileLatex(latexSource)
+      if (!compiled.ok) {
+        return NextResponse.json(
+          {
+            error: 'The one-page version did not compile, so your resume was left unchanged.',
+            errors: compiled.errors,
+          },
+          { status: 422 },
+        )
+      }
+      pageCount = await countPdfPages(compiled.pdf)
+      if (pageCount > 1) {
+        message = `${message} The updated resume is still ${pageCount} pages; you can trim it manually in the editor.`.trim()
+      }
     }
 
     if (latexSource !== body.data.source) {
@@ -149,6 +184,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       source: latexSource,
       message,
       editCount: edits.length,
+      pageCount,
       changes: edits.map((edit) => ({ before: edit.find, after: edit.replace })),
     })
   } catch (error) {

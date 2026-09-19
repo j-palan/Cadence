@@ -444,3 +444,16 @@ export async function compileLatex(source: string): Promise<CompileResult> {
     await rm(dir, { recursive: true, force: true }).catch(() => {})
   }
 }
+
+/** Read the actual PDF page tree; layout cannot be inferred reliably from LaTeX source. */
+export async function countPdfPages(pdf: Buffer): Promise<number> {
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const task = pdfjs.getDocument({ data: new Uint8Array(pdf), useSystemFonts: false })
+  const document = await task.promise
+  try {
+    return document.numPages
+  } finally {
+    document.cleanup()
+    await task.destroy()
+  }
+}
