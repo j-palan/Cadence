@@ -18,6 +18,13 @@ const matching = load('lib/jobs/matching.ts')
 const normalize = load('lib/jobs/normalize.ts')
 const { filterJobs, groupJobsByCompany } = load('lib/jobs/board.ts', { './normalize': normalize })
 const sources = load('lib/jobs/sources.ts')
+const preferences = load('lib/jobs/preferences.ts')
+const remembered = { version: 1, resumeId: 'resume-a', search: 'backend', country: 'CA', term: 'Fall', remote: true, tab: 'applications', sort: 'fit', expanded: { Palantir: true }, scroll: 800 }
+assert.deepEqual(preferences.parseBoardPreferences(JSON.stringify(remembered)), remembered)
+assert.equal(preferences.parseBoardPreferences('{broken'), null)
+assert.equal(preferences.parseBoardPreferences(JSON.stringify({ ...remembered, term: 'Spring' })), null)
+assert.equal(preferences.parseBoardPreferences(JSON.stringify({ ...remembered, scroll: -1 })), null)
+assert.notEqual(preferences.boardPreferencesKey('user-a'), preferences.boardPreferencesKey('user-b'))
 
 const profile = matching.extractProfile(String.raw`
 \newcommand{\templateMetadata}{Kubernetes Rust}

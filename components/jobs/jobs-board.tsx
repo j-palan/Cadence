@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Bookmark, ChevronDown, ChevronUp, ExternalLink, Loader2, Target } from 'lucide-react'
@@ -21,8 +21,10 @@ import { APPLICATION_LABELS, type JobApplication } from '@/lib/jobs/application-
 import { filterJobs, groupJobsByCompany, type BoardJob } from '@/lib/jobs/board'
 import { formatRelativeTime } from '@/lib/utils'
 import { INTERNSHIP_TERMS, jobTerms } from '@/lib/jobs/normalize'
+import { boardPreferencesKey, parseBoardPreferences } from '@/lib/jobs/preferences'
 
 interface Props {
+  userId: string
   initialJobId?: string
   jobs: BoardJob[]
   resumes: { id: string; name: string }[]
@@ -31,7 +33,7 @@ interface Props {
   sources: { total: number; healthy: number; lastChecked: string | null }
 }
 
-export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, initialJobId }: Props) {
+export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, initialJobId, userId }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
@@ -47,6 +49,48 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
   const [error, setError] = useState<string | null>(null)
   const [detailId, setDetailId] = useState<string | null>(initialJobId ?? null)
   const [methodOpen, setMethodOpen] = useState(false)
+  const [restored, setRestored] = useState(false)
+  const restoreScroll = useRef(0)
+  const restoringResume = useRef<string | null>(null)
+  const preferencesKey = boardPreferencesKey(userId)
+
+  useEffect(() => {
+    let saved: ReturnType<typeof parseBoardPreferences> = null
+    try { saved = parseBoardPreferences(localStorage.getItem(preferencesKey)) } catch { /* Storage may be disabled. */ }
+    if (saved) {
+      setSearch(saved.search); setCountry(saved.country); setTerm(saved.term); setRemote(saved.remote)
+      setTab(saved.tab); setSort(saved.sort); setExpanded(saved.expanded)
+      restoreScroll.current = saved.scroll
+      if (!new URL(window.location.href).searchParams.has('resume') && resumes.some(resume => resume.id === saved.resumeId) && saved.resumeId !== selectedResume) {
+        restoringResume.current = saved.resumeId
+        router.replace(`/jobs?resume=${encodeURIComponent(saved.resumeId)}${initialJobId ? `&job=${encodeURIComponent(initialJobId)}` : ''}`, { scroll: false })
+      }
+    }
+    setRestored(true)
+    // The user's key is stable for this mounted board. Explicit resume links
+    // take precedence over a remembered selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferencesKey])
+
+  useEffect(() => {
+    if (!restored) return
+    const frame = requestAnimationFrame(() => window.scrollTo({ top: restoreScroll.current, behavior: 'auto' }))
+    return () => cancelAnimationFrame(frame)
+  }, [restored])
+
+  useEffect(() => {
+    if (!restored || (restoringResume.current && restoringResume.current !== selectedResume)) return
+    restoringResume.current = null
+    let frame = 0
+    const persist = () => {
+      try { localStorage.setItem(preferencesKey, JSON.stringify({ version: 1, resumeId: selectedResume, search: search.slice(0, 200), country, term, remote, tab, sort, expanded, scroll: window.scrollY })) } catch { /* Browsing still works without storage. */ }
+    }
+    const onScroll = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(persist) }
+    persist()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('pagehide', persist)
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('scroll', onScroll); window.removeEventListener('pagehide', persist) }
+  }, [restored, preferencesKey, selectedResume, search, country, term, remote, tab, sort, expanded])
 
   const currentJobs = useMemo(() => jobs.map(job => ({ ...job, application: applications[job.id] ?? job.application, term: jobTerms(job).join(' / ') || 'Not specified', saved: bookmarks[job.id] ?? job.saved })), [jobs, bookmarks, applications])
   const filtered = useMemo(() => filterJobs(currentJobs, { search, country, term, remote, savedOnly: tab === 'saved', applicationsOnly: tab === 'applications', sort }), [currentJobs, search, country, term, remote, tab, sort])

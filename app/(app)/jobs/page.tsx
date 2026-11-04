@@ -48,6 +48,7 @@ export default async function JobsPage({ searchParams }: { searchParams: { resum
 
   return (
     <JobsBoard
+      userId={user.id}
       initialJobId={postings.find(job => job.id === searchParams.job && job.available)?.id}
       jobs={postings}
       resumes={resumes.map(({ id, name }) => ({ id, name }))}
