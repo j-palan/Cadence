@@ -16,10 +16,11 @@ function load(path, mocks = {}) {
 }
 const matching = load('lib/jobs/matching.ts')
 const normalize = load('lib/jobs/normalize.ts')
-const { filterJobs, groupJobsByCompany } = load('lib/jobs/board.ts', { './normalize': normalize })
 const sources = load('lib/jobs/sources.ts')
+const { filterJobs, groupJobsByCompany } = load('lib/jobs/board.ts', { './normalize': normalize, './sources': sources })
+const feed = load('lib/jobs/feed.ts', { './normalize': normalize })
 const preferences = load('lib/jobs/preferences.ts')
-const remembered = { version: 1, resumeId: 'resume-a', search: 'backend', country: 'CA', term: 'Fall', remote: true, tab: 'applications', sort: 'fit', expanded: { Palantir: true }, scroll: 800 }
+const remembered = { version: 1, resumeId: 'resume-a', search: 'backend', country: 'CA', term: 'Fall', remote: true, tab: 'applications', sort: 'fit', expanded: { Palantir: true }, scroll: 800, employer: 'all' }
 assert.deepEqual(preferences.parseBoardPreferences(JSON.stringify(remembered)), remembered)
 assert.equal(preferences.parseBoardPreferences('{broken'), null)
 assert.equal(preferences.parseBoardPreferences(JSON.stringify({ ...remembered, term: 'Spring' })), null)
@@ -130,8 +131,22 @@ assert.deepEqual(groupJobsByCompany([]), [])
 
 const finished = [], failed = []
 let state = []
+const ashbyJob = { id: 'intern-42', title: 'Software Engineer', location: 'Remote (US)', employmentType: 'Intern', isListed: true, isRemote: true, workplaceType: 'Hybrid', address: { postalAddress: { addressCountry: 'US' } }, descriptionPlain: 'Build Python and React software applications alongside our engineering team.', jobUrl: 'https://jobs.ashbyhq.com/example/intern-42' }
+const parsedAshby = feed.parseFeed('ashby', { jobs: [ashbyJob, { ...ashbyJob, id: 'hidden', isListed: false }] })
+assert.equal(parsedAshby.length, 1, 'Unlisted postings must not be published')
+assert.equal(parsedAshby[0].remote, false, 'Hybrid is not fully remote')
+assert.deepEqual(normalize.countriesFor(parsedAshby[0].geo), ['US'])
+assert(normalize.isSweIntern(parsedAshby[0].title, parsedAshby[0].internship, parsedAshby[0].description))
+assert(normalize.isSweIntern('Engineering Intern (Summer 2027)', true, 'Build software products and backend APIs.'))
+assert(!normalize.isSweIntern('Engineering Intern', true, 'Design electrical wiring and mechanical assemblies.'))
+assert(!normalize.isSweIntern('Software Engineer, International'))
+assert.throws(() => feed.parseFeed('ashby', { jobs: 'malformed' }))
+assert.equal(new Set(sources.JOB_SOURCES.map(source => `${source.provider}:${source.board}`)).size, sources.JOB_SOURCES.length)
+const employerJobs = ['Stripe', 'Ramp', 'Exa'].map((company, i) => ({ ...job, company, id: `employer-${i}` }))
+assert.deepEqual(filterJobs(employerJobs, { ...filters, employer: 'yc' }).map(job => job.company), ['Stripe', 'Exa'])
+assert.deepEqual(filterJobs(employerJobs, { ...filters, employer: 'startup' }).map(job => job.company), ['Ramp', 'Exa'])
 const sync = load('lib/jobs/sync.ts', {
-  'server-only': {}, './sources': sources, './normalize': normalize,
+  'server-only': {}, './sources': sources, './normalize': normalize, './feed': feed,
   '@/lib/db/queries': {
     listJobSources: async () => state,
     claimJobSource: async () => ({}),
@@ -146,6 +161,7 @@ try {
     if (url.includes('/databricks/')) return { ok: true, json: async () => ({ jobs: 'invalid' }) }
     if (url.includes('/wealthsimple?')) return { ok: true, json: async () => [] }
     if (url.includes('lever.co')) return { ok: true, json: async () => [{ id: '42', text: 'Software Engineering Intern', hostedUrl: 'https://jobs.lever.co/example/42', categories: { location: 'New York, NY' }, descriptionPlain: 'Build Python and React applications alongside our software engineering team.' }] }
+    if (url.includes('ashbyhq.com')) return { ok: true, json: async () => ({ jobs: [ashbyJob, { ...ashbyJob, id: 'hidden', isListed: false }, { ...ashbyJob, id: 'full-time', employmentType: 'FullTime' }] }) }
     const valid = { id: 42, internal_job_id: 42, title: 'Software Engineer Intern - Summer 2027', location: { name: 'Toronto, Canada' }, absolute_url: 'https://example.com/jobs/42', content: '<p>Build Python and React applications alongside our software engineering team.</p>' }
     return { ok: true, json: async () => ({ jobs: [valid, { ...valid, id: 43, title: 'Senior Software Engineer' }, { ...valid, id: 44, location: { name: 'London, UK' } }] }) }
   }
@@ -154,6 +170,7 @@ try {
   assert(!finished.some(item => failed.includes(item.source)), 'Failed or malformed feeds must not close existing jobs')
   assert.equal(finished.find(item => item.source === 'lever:wealthsimple').postings.length, 0, 'A valid empty snapshot can close jobs')
   assert(finished.filter(item => item.source.startsWith('greenhouse')).every(item => item.postings.length === 1))
+  assert(finished.filter(item => item.source.startsWith('ashby')).every(item => item.postings.length === 1))
   const fetched = finished.length
   const now = new Date()
   state = sources.JOB_SOURCES.map(source => ({ id: `${source.provider}:${source.board}`, checkedAt: now, attemptedAt: now, leaseUntil: now }))

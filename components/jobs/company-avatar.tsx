@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { getEmployer } from '@/lib/jobs/sources'
 
 // Brand accents are confined to company avatars; the app keeps its theme.
 const brands: Record<string, { domain: string; color: string; initials: string }> = {
@@ -19,12 +20,13 @@ const brands: Record<string, { domain: string; color: string; initials: string }
 export function CompanyAvatar({ company }: { company: string }) {
   const [failed, setFailed] = useState(false)
   const brand = brands[company]
+  const domain = brand?.domain ?? getEmployer(company).domain
   return (
     <span aria-hidden="true" className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background text-sm font-semibold">
       <span className="absolute inset-0 opacity-10" style={{ backgroundColor: brand?.color ?? 'currentColor' }} />
-      {brand && !failed ? (
+      {domain && !failed ? (
         <img
-          src={`https://www.google.com/s2/favicons?domain=${brand.domain}&sz=64`}
+          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
           alt="" width={24} height={24} loading="lazy" referrerPolicy="no-referrer"
           className="relative h-6 w-6 object-contain" onError={() => setFailed(true)}
         />

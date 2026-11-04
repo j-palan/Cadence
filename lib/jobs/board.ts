@@ -1,5 +1,6 @@
 import type { Match } from './matching'
 import { jobTerms } from './normalize'
+import { getEmployer } from './sources'
 import type { JobApplication } from './application-status'
 
 export interface BoardJob {
@@ -21,6 +22,7 @@ export interface BoardJob {
 }
 
 export interface BoardFilters {
+  employer?: 'all' | 'startup' | 'yc'
   applicationsOnly?: boolean
   search: string
   country: string
@@ -34,6 +36,7 @@ export function filterJobs(jobs: BoardJob[], filters: BoardFilters): BoardJob[] 
   const query = filters.search.trim().toLowerCase()
   return jobs.filter(job =>
     (filters.applicationsOnly ? !!job.application : filters.savedOnly ? job.saved : job.available)
+    && (!filters.employer || filters.employer === 'all' || (filters.employer === 'startup' ? getEmployer(job.company).startup : !!getEmployer(job.company).ycUrl))
     && (filters.country === 'all' || job.countries.includes(filters.country))
     && (filters.term === 'all' || jobTerms(job).some(term => term === filters.term))
     && (!filters.remote || job.remote)

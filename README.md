@@ -197,6 +197,7 @@ How keys are handled:
 - **Job board → View posting → Your application** records Saved, Applied, Interviewing, or Closed status, a resume association, and notes. Applied/Interviewing preserves the first submitted resume snapshot, even if the editable version later changes or is deleted. The Applications tab includes tracked closed roles. Tailored copies from a posting are associated with its draft application.
 - Technical match scores weight required skills at 3 points, unspecified skills at 2, and preferred skills at 1. Education/graduation, work authorization, and availability appear separately for the user to verify.
 - Filters, expanded companies, resume selection, and scroll position are remembered in browser storage under the signed-in user's ID. Explicit resume links override the remembered selection.
+- Employer coverage includes Greenhouse, Lever, and Ashby feeds. Filter **Companies** to startups/growth-stage employers or YC companies; YC labels reference curated public YC profiles. This is a curated employer list, not a complete scrape of YC or Work at a Startup. New employers with no current internships remain monitored for future openings. Hidden Ashby listings are excluded, and hybrid roles do not count as fully remote.
 
 Apply the application-tracking migration before running the updated app:
 

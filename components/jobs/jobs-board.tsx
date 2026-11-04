@@ -22,6 +22,7 @@ import { filterJobs, groupJobsByCompany, type BoardJob } from '@/lib/jobs/board'
 import { formatRelativeTime } from '@/lib/utils'
 import { INTERNSHIP_TERMS, jobTerms } from '@/lib/jobs/normalize'
 import { boardPreferencesKey, parseBoardPreferences } from '@/lib/jobs/preferences'
+import { getEmployer } from '@/lib/jobs/sources'
 
 interface Props {
   userId: string
@@ -38,6 +39,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
   const [pending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
   const [country, setCountry] = useState('all')
+  const [employer, setEmployer] = useState<'all' | 'startup' | 'yc'>('all')
   const [term, setTerm] = useState('all')
   const [remote, setRemote] = useState(false)
   const [tab, setTab] = useState('all')
@@ -59,7 +61,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
     try { saved = parseBoardPreferences(localStorage.getItem(preferencesKey)) } catch { /* Storage may be disabled. */ }
     if (saved) {
       setSearch(saved.search); setCountry(saved.country); setTerm(saved.term); setRemote(saved.remote)
-      setTab(saved.tab); setSort(saved.sort); setExpanded(saved.expanded)
+      setTab(saved.tab); setSort(saved.sort); setExpanded(saved.expanded); setEmployer(saved.employer)
       restoreScroll.current = saved.scroll
       if (!new URL(window.location.href).searchParams.has('resume') && resumes.some(resume => resume.id === saved.resumeId) && saved.resumeId !== selectedResume) {
         restoringResume.current = saved.resumeId
@@ -83,17 +85,17 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
     restoringResume.current = null
     let frame = 0
     const persist = () => {
-      try { localStorage.setItem(preferencesKey, JSON.stringify({ version: 1, resumeId: selectedResume, search: search.slice(0, 200), country, term, remote, tab, sort, expanded, scroll: window.scrollY })) } catch { /* Browsing still works without storage. */ }
+      try { localStorage.setItem(preferencesKey, JSON.stringify({ version: 1, resumeId: selectedResume, search: search.slice(0, 200), country, term, remote, tab, sort, expanded, employer, scroll: window.scrollY })) } catch { /* Browsing still works without storage. */ }
     }
     const onScroll = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(persist) }
     persist()
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('pagehide', persist)
     return () => { cancelAnimationFrame(frame); window.removeEventListener('scroll', onScroll); window.removeEventListener('pagehide', persist) }
-  }, [restored, preferencesKey, selectedResume, search, country, term, remote, tab, sort, expanded])
+  }, [restored, preferencesKey, selectedResume, search, country, term, remote, tab, sort, expanded, employer])
 
   const currentJobs = useMemo(() => jobs.map(job => ({ ...job, application: applications[job.id] ?? job.application, term: jobTerms(job).join(' / ') || 'Not specified', saved: bookmarks[job.id] ?? job.saved })), [jobs, bookmarks, applications])
-  const filtered = useMemo(() => filterJobs(currentJobs, { search, country, term, remote, savedOnly: tab === 'saved', applicationsOnly: tab === 'applications', sort }), [currentJobs, search, country, term, remote, tab, sort])
+  const filtered = useMemo(() => filterJobs(currentJobs, { search, country, term, remote, employer, savedOnly: tab === 'saved', applicationsOnly: tab === 'applications', sort }), [currentJobs, search, country, term, remote, tab, sort, employer])
   const companies = useMemo(() => groupJobsByCompany(filtered), [filtered])
   const detail = currentJobs.find(job => job.id === detailId)
 
@@ -162,7 +164,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
 
       <Card className="mt-6">
         <CardContent className="p-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="match-resume" className="text-xs text-muted-foreground">Match against</Label>
               <Select id="match-resume" value={selectedResume} disabled={!resumes.length || pending}
@@ -185,6 +187,12 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
               <Label htmlFor="job-term" className="text-xs text-muted-foreground">Internship term</Label>
               <Select id="job-term" value={term} onChange={event => setTerm(event.target.value)}>
                 <option value="all">All terms</option>{INTERNSHIP_TERMS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="job-employer" className="text-xs text-muted-foreground">Companies</Label>
+              <Select id="job-employer" value={employer} onChange={event => setEmployer(event.target.value as 'all' | 'startup' | 'yc')}>
+                <option value="all">All companies</option><option value="startup">Startups & growth-stage</option><option value="yc">YC companies</option>
               </Select>
             </div>
             <div className="space-y-1.5">
@@ -242,7 +250,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
                 <header className="flex items-center gap-3 border-b border-border bg-muted/20 px-4 py-3">
                   <CompanyAvatar company={group.company} />
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-sm font-semibold">{group.company}</h2>
+                    <div className="flex flex-wrap items-center gap-2"><h2 className="text-sm font-semibold">{group.company}</h2>{getEmployer(group.company).ycUrl ? <Badge variant="outline" className="border-orange-500/30 text-orange-700 dark:text-orange-400" aria-label="Y Combinator company">YC</Badge> : getEmployer(group.company).startup ? <Badge variant="outline">Startup</Badge> : null}</div>
                     <p className="mt-0.5 text-xs text-muted-foreground">{group.jobs.length} {group.jobs.length === 1 ? 'opportunity' : 'opportunities'}</p>
                   </div>
                   <span className="hidden text-xs text-muted-foreground sm:block">{sort === 'fit' ? 'Best matches first' : 'Newest first'}</span>
