@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { MODE_LABELS } from '@/lib/prompts'
 
@@ -33,16 +34,19 @@ export function TailorDialog({
   pending,
   error,
   initialText = '',
+  initialCopyName = 'Tailored resume',
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (jobDescription: string, customInstructions: string) => void
+  onSubmit: (jobDescription: string, customInstructions: string, copyName: string) => void
   pending: boolean
   error: string | null
   initialText?: string
+  initialCopyName?: string
 }) {
   const [text, setText] = useState(initialText)
   const [instructions, setInstructions] = useState('')
+  const [copyName, setCopyName] = useState(initialCopyName.slice(0, 120))
   const tooShort = text.trim().length < MIN_CHARS
 
   return (
@@ -53,8 +57,12 @@ export function TailorDialog({
             <Target className="h-4 w-4 text-success" />
             {MODE_LABELS.tailor.title}
           </DialogTitle>
-          <DialogDescription>{MODE_LABELS.tailor.description}</DialogDescription>
+          <DialogDescription>{MODE_LABELS.tailor.description} Saves a separate copy and keeps this resume intact.</DialogDescription>
         </DialogHeader>
+        <div className="mt-5 space-y-1.5">
+          <Label htmlFor="tailored-copy-name" className="text-xs text-muted-foreground">Copy name</Label>
+          <Input id="tailored-copy-name" value={copyName} onChange={event => setCopyName(event.target.value)} maxLength={120} disabled={pending} />
+        </div>
 
         <div className="mt-5 space-y-1.5">
           <Label htmlFor="job-description" className="text-xs text-muted-foreground">
@@ -91,11 +99,11 @@ export function TailorDialog({
           </Button>
           <Button
             variant="success"
-            onClick={() => onSubmit(text, instructions)}
-            disabled={pending || tooShort}
+            onClick={() => onSubmit(text, instructions, copyName.trim())}
+            disabled={pending || tooShort || !copyName.trim()}
           >
             {pending ? <Loader2 className="animate-spin" /> : <Target />}
-            Tailor resume
+            Create tailored copy
           </Button>
         </DialogFooter>
       </DialogContent>

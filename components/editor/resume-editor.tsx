@@ -344,7 +344,7 @@ export function ResumeEditor({
 
   async function runChatEdit(
     instruction: string,
-    options: { jobDescription?: string; workLog?: string; userMessage?: string } = {},
+    options: { jobDescription?: string; workLog?: string; userMessage?: string; copyName?: string } = {},
   ) {
     if (!hasEnabledAi(aiSettings)) {
       setChatOpen(false)
@@ -371,10 +371,12 @@ export function ResumeEditor({
           source: before,
           jobDescription: options.jobDescription,
           workLog: options.workLog,
+          copyName: options.copyName,
         }),
       })
       const body = (await response.json().catch(() => null)) as {
         source?: string
+        resumeId?: string
         message?: string
         editCount?: number
         changes?: Array<{ before: string; after: string }>
@@ -392,6 +394,10 @@ export function ResumeEditor({
         throw new Error(body?.error ?? `AI edit failed (${response.status})`)
       }
 
+      if (body.resumeId && body.resumeId !== resume.id) {
+        router.replace(`/resume/${body.resumeId}`)
+        return
+      }
       setUndoSource(before)
       setSource(body.source)
       sourceRef.current = body.source
@@ -422,7 +428,7 @@ export function ResumeEditor({
     }
   }
 
-  function runTailorEdit(jobDescription: string, customInstructions: string) {
+  function runTailorEdit(jobDescription: string, customInstructions: string, copyName: string) {
     setTailorError(null)
     setTailorOpen(false)
     setChatOpen(true)
@@ -431,6 +437,7 @@ export function ResumeEditor({
       : 'Tailor this resume to the job description using the smallest useful wording changes.'
     void runChatEdit(instruction, {
       jobDescription,
+      copyName,
       userMessage: customInstructions.trim()
         ? `Tailor this resume to the job description. ${customInstructions.trim()}`
         : 'Tailor this resume to the job description.',
@@ -651,14 +658,15 @@ export function ResumeEditor({
       />
 
       <TailorDialog
+        initialCopyName={`${resume.name} — ${initialJobDescription?.split('\n').slice(0, 2).reverse().join(' · ') || 'tailored'}`}
         initialText={initialJobDescription}
         open={tailorOpen}
         onOpenChange={(next) => {
           setTailorOpen(next)
           if (!next) setTailorError(null)
         }}
-        onSubmit={(jobDescription, customInstructions) =>
-          runTailorEdit(jobDescription, customInstructions)
+        onSubmit={(jobDescription, customInstructions, copyName) =>
+          runTailorEdit(jobDescription, customInstructions, copyName)
         }
         pending={chatPending}
         error={tailorError}

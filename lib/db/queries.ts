@@ -355,3 +355,18 @@ export async function saveJob(userId: string, jobId: string, saved: boolean) {
   await db.insert(savedJobs).values({ userId, jobId }).onConflictDoNothing()
   return true
 }
+
+/** Create a separate tailored version; never write tailoring into its parent. */
+export async function createTailoredResume(userId: string, sourceId: string, latexSource: string, requestedName: string) {
+  const parent = await getResume(userId, sourceId)
+  if (!parent) return null
+  const base = requestedName.trim().slice(0, 110) || `${parent.name.slice(0, 90)} — tailored`
+  for (let attempt = 0; attempt < 20; attempt++) {
+    try {
+      return await createResume(userId, { name: attempt ? `${base} (${attempt + 1})` : base, template: parent.template, latexSource })
+    } catch (error) {
+      if (!(error instanceof DuplicateResumeNameError)) throw error
+    }
+  }
+  throw new DuplicateResumeNameError()
+}
