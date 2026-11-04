@@ -160,3 +160,29 @@ try {
   assert.equal(finished.length, fetched)
 } finally { globalThis.fetch = originalFetch }
 console.log('PASS: resume evidence, scoring, role/region filters, bookmarks, feed validation, outage safety, and refresh cadence.')
+
+// Upload checks run entirely in memory. No user files or external services.
+let pdfDestroyed = false
+const upload = load('lib/resume-upload.ts', { 'pdfjs-dist': {
+  GlobalWorkerOptions: {},
+  getDocument: () => ({ promise: Promise.resolve({ numPages: 1, getPage: async () => ({ getTextContent: async () => ({ items: [{ str: 'Example Engineer — Built Python and React services with PostgreSQL, Docker, and automated tests.', hasEOL: true }] }) }) }), destroy: async () => { pdfDestroyed = true } }),
+} })
+assert.equal(upload.validateResumeFile('resume.PDF', 100), 'pdf')
+assert.throws(() => upload.validateResumeFile('resume.exe', 100))
+assert.throws(() => upload.validateResumeFile('resume.pdf', 6 * 1024 * 1024))
+assert.throws(() => upload.validateImportedText(''))
+const { File } = require('node:buffer')
+const resumeContent = 'Example Engineer\nEducation: Example University, 2027.\nBuilt Python, React, and PostgreSQL applications.'
+assert.equal((await upload.extractResumeFile(new File([resumeContent], 'resume.txt'))).text, resumeContent)
+assert.equal((await upload.extractResumeFile(new File([String.raw`\documentclass{article}\begin{document}Example Engineer — Python and React developer.\end{document}`], 'resume.tex'))).latex, true)
+assert((await upload.extractResumeFile(new File(['%PDF-mock'], 'resume.pdf'))).text.includes('PostgreSQL'))
+assert(pdfDestroyed, 'PDF workers must be cleaned up after extraction')
+await assert.rejects(() => upload.extractResumeFile(new File(['not a PDF'], 'resume.pdf')))
+const JSZip = createRequire(require.resolve('mammoth/package.json'))('jszip')
+const docx = new JSZip()
+docx.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>')
+docx.file('_rels/.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>')
+docx.file('word/document.xml', `<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${resumeContent}</w:t></w:r></w:p></w:body></w:document>`)
+const docxResult = await upload.extractResumeFile(new File([await docx.generateAsync({ type: 'uint8array' })], 'resume.docx'))
+assert(docxResult.text.includes('Example Engineer') && docxResult.text.includes('PostgreSQL'))
+console.log('PASS: upload validation, text/LaTeX import, PDF extraction lifecycle, and real DOCX text extraction.')

@@ -190,6 +190,22 @@ How keys are handled:
    and the full TeX log is one click away. *PDF* downloads what the engine
    produced.
 
+## Resume imports, tailoring, and applications
+
+- **New resume → Upload resume** accepts PDF, DOCX, TXT, and TEX files up to 5 MB. PDF imports require selectable text and are limited to ten pages. Extraction happens in the browser; review the text before importing. PDF/DOCX/TXT conversion uses the user's connected AI provider. Complete LaTeX documents import directly without an API key. Original PDF/Word formatting is converted to the editable resume template.
+- **Tailor** generates a compile-checked preview. Review before/after changes, then accept to create a named copy or discard the proposal. The original remains intact. Reviews expire after fifteen minutes and are bound to the user, original version, and proposed source; acceptance retries reuse the same copy.
+- **Job board → View posting → Your application** records Saved, Applied, Interviewing, or Closed status, a resume association, and notes. Applied/Interviewing preserves the first submitted resume snapshot, even if the editable version later changes or is deleted. The Applications tab includes tracked closed roles. Tailored copies from a posting are associated with its draft application.
+- Technical match scores weight required skills at 3 points, unspecified skills at 2, and preferred skills at 1. Education/graduation, work authorization, and availability appear separately for the user to verify.
+- Filters, expanded companies, resume selection, and scroll position are remembered in browser storage under the signed-in user's ID. Explicit resume links override the remembered selection.
+
+Apply the application-tracking migration before running the updated app:
+
+```bash
+npm run db:migrate
+```
+
+Run the offline feature checks with `npm run check:jobs`. They exercise matching, filters, feed failure handling, preference validation, signed review integrity, and upload extraction without contacting employer feeds or the configured database.
+
 ## Demo recording inputs
 
 These fictional inputs are written for the Jake Ryan resume bundled with

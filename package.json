@@ -15,7 +15,8 @@
     "tex:warm": "node scripts/warm-tex.mjs",
     "pdf:worker": "node scripts/copy-pdf-worker.mjs",
     "postinstall": "node scripts/copy-pdf-worker.mjs",
-    "check:shape": "node scripts/check-resume-shape.mjs"
+    "check:shape": "node scripts/check-resume-shape.mjs",
+    "check:jobs": "node scripts/check-jobs.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
@@ -41,6 +42,7 @@
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.33.0",
+    "mammoth": "^1.13.0",
     "next": "14.2.35",
     "next-auth": "5.0.0-beta.32",
     "next-themes": "^0.4.6",
