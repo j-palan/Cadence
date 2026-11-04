@@ -28,14 +28,14 @@ export default async function JobsPage({ searchParams }: { searchParams: { resum
   const now = Date.now()
   const seen = new Set<string>()
   // Keep a bookmarked copy in preference to an identical syndicated posting.
-  const deduplicated = [...rows].sort((a, b) => Number(!!b.savedAt) - Number(!!a.savedAt)).filter(({ job, savedAt }) => {
+  const deduplicated = [...rows].sort((a, b) => Number(!!b.savedAt || !!b.application) - Number(!!a.savedAt || !!a.application)).filter(({ job, savedAt, application }) => {
     const key = `${job.company}:${job.title}:${job.location}`.toLowerCase()
-    if (seen.has(key) && !savedAt) return false
+    if (seen.has(key) && !savedAt && !application) return false
     seen.add(key)
     return true
   })
   const postings = deduplicated.map(({ job, savedAt, application }) => ({
-    application: application ? { status: application.status, resumeId: application.resumeId, resumeName: application.resumeName, appliedAt: application.appliedAt?.toISOString() ?? null, notes: application.notes } : null,
+    application: application ? { hasSnapshot: !!application.submittedSource, status: application.status, resumeId: application.resumeId, resumeName: application.resumeName, appliedAt: application.appliedAt?.toISOString() ?? null, notes: application.notes } : null,
     id: job.id, company: job.company, title: job.title, location: job.location,
     countries: job.countries, remote: job.remote, term: job.term,
     description: job.description, url: job.url,

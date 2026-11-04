@@ -10,7 +10,7 @@ export function ApplicationTracker({ jobId, application, resumes, selectedResume
   jobId: string; application?: JobApplication | null; resumes: { id: string; name: string }[]; selectedResume: string; onChange: (application: JobApplication) => void
 }) {
   const [status, setStatus] = useState<ApplicationStatus>(application?.status ?? 'saved')
-  const [resumeId, setResumeId] = useState(application?.resumeId ?? selectedResume)
+  const [resumeId, setResumeId] = useState(application ? application.resumeId ?? '' : selectedResume)
   const [notes, setNotes] = useState(application?.notes ?? '')
   const [pending, setPending] = useState(false)
   const [message, setMessage] = useState('')
@@ -28,9 +28,9 @@ export function ApplicationTracker({ jobId, application, resumes, selectedResume
     <h3 className="text-sm font-semibold">Your application</h3>
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-1.5"><Label htmlFor="application-status">Status</Label><Select id="application-status" value={status} disabled={pending} onChange={event => setStatus(event.target.value as ApplicationStatus)}>{APPLICATION_STATUSES.map(value => <option key={value} value={value}>{APPLICATION_LABELS[value]}</option>)}</Select></div>
-      <div className="space-y-1.5"><Label htmlFor="application-resume">Resume used</Label><Select id="application-resume" value={resumeId} disabled={pending || !!application?.appliedAt} onChange={event => setResumeId(event.target.value)}><option value="">Not recorded</option>{application?.resumeId && !resumes.some(resume => resume.id === application.resumeId) ? <option value={application.resumeId}>{application.resumeName ?? 'Submitted resume'}</option> : null}{resumes.map(resume => <option key={resume.id} value={resume.id}>{resume.name}</option>)}</Select></div>
+      <div className="space-y-1.5"><Label htmlFor="application-resume">Resume used</Label><Select id="application-resume" value={resumeId} disabled={pending || application?.hasSnapshot} onChange={event => setResumeId(event.target.value)}><option value="">{application?.hasSnapshot ? application.resumeName ?? 'Submitted snapshot' : 'Not recorded'}</option>{application?.resumeId && !resumes.some(resume => resume.id === application.resumeId) ? <option value={application.resumeId}>{application.resumeName ?? 'Submitted resume'}</option> : null}{resumes.map(resume => <option key={resume.id} value={resume.id}>{resume.name}</option>)}</Select></div>
     </div>
-    {application?.appliedAt ? <p className="text-xs text-muted-foreground">Submitted {new Date(application.appliedAt).toLocaleDateString()} · {application.resumeName ?? 'No resume recorded'}{application.resumeName ? <> · <a className="underline underline-offset-4" href={`/api/jobs/${encodeURIComponent(jobId)}/application/resume`}>Download submitted resume</a></> : null}</p> : <p className="text-xs text-muted-foreground">Marking Applied or Interviewing records a snapshot of the selected resume.</p>}
+    {application?.appliedAt ? <p className="text-xs text-muted-foreground">Submitted {new Date(application.appliedAt).toLocaleDateString()} · {application.resumeName ?? 'No resume recorded'}{application.hasSnapshot ? <> · <a className="underline underline-offset-4" href={`/api/jobs/${encodeURIComponent(jobId)}/application/resume`}>Download submitted resume</a></> : null}</p> : <p className="text-xs text-muted-foreground">Marking Applied or Interviewing records a snapshot of the selected resume.</p>}
     <Label htmlFor="application-notes" className="block">Notes</Label><Textarea id="application-notes" value={notes} maxLength={2000} disabled={pending} onChange={event => setNotes(event.target.value)} placeholder="Interview dates, contacts, or reminders" />
     <Button variant="outline" onClick={save} disabled={pending}>{pending ? 'Saving…' : 'Save application'}</Button>
     {message ? <p role="status" className="text-xs text-muted-foreground">{message}</p> : null}

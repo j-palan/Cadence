@@ -70,7 +70,7 @@ function analyzePosting(description: string) {
     }
     const excerpt = line.slice(0, 300)
     if (/graduat|pursuing|enrolled|bachelor|master.s degree|university degree/i.test(line)) eligibility.graduation.push(excerpt)
-    if (/work authori[sz]|visa|sponsor|citizen|eligible to work|right to work/i.test(line)) eligibility.authorization.push(excerpt)
+    if (/work authori[sz]|authori[sz](?:ed|ation) to work|visa|sponsor|citizen|eligible to work|right to work/i.test(line)) eligibility.authorization.push(excerpt)
     if (/availab|(?:internship|program).{0,50}(?:weeks|months)|(?:start|begin).{0,40}20\d{2}|return.{0,30}(?:school|university)/i.test(line)) eligibility.availability.push(excerpt)
   }
   for (const key of Object.keys(eligibility) as (keyof typeof eligibility)[]) eligibility[key] = Array.from(new Set(eligibility[key])).slice(0, 3)

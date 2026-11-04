@@ -1,6 +1,7 @@
 export const APPLICATION_STATUSES = ['saved', 'applied', 'interviewing', 'closed'] as const
 export type ApplicationStatus = typeof APPLICATION_STATUSES[number]
 export interface JobApplication {
+  hasSnapshot: boolean
   status: ApplicationStatus
   resumeId: string | null
   resumeName: string | null

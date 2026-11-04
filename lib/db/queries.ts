@@ -388,14 +388,14 @@ export async function updateJobApplication(userId: string, jobId: string, input:
   const existing = await getJobApplication(userId, jobId)
   const submitted = input.status === 'applied' || input.status === 'interviewing'
   // Freeze the first submitted source. Later editor changes cannot rewrite it.
-  const snapshot = existing?.submittedSource ?? (submitted ? selected?.latexSource ?? null : null)
+  const snapshot = existing?.submittedSource ?? (submitted && selected?.latexSource.trim() ? selected.latexSource : null)
   const [row] = await db.insert(jobApplications).values({
     userId, jobId, status: input.status, notes: input.notes, resumeId: selected?.id ?? null,
     resumeName: existing?.submittedSource ? existing.resumeName : selected?.name ?? null,
     submittedSource: snapshot, appliedAt: existing?.appliedAt ?? (submitted ? new Date() : null),
   }).onConflictDoUpdate({ target: [jobApplications.userId, jobApplications.jobId], set: {
     status: input.status, notes: input.notes,
-    resumeId: existing?.submittedSource ? existing.resumeId : selected?.id ?? null,
+    resumeId: sql`case when ${jobApplications.submittedSource} is not null then ${jobApplications.resumeId} else excluded.resume_id end`,
     resumeName: sql`coalesce(case when ${jobApplications.submittedSource} is not null then ${jobApplications.resumeName} end, excluded.resume_name)`,
     submittedSource: sql`coalesce(${jobApplications.submittedSource}, excluded.submitted_source)`,
     appliedAt: sql`coalesce(${jobApplications.appliedAt}, excluded.applied_at)`, updatedAt: new Date(),
@@ -409,5 +409,5 @@ export async function linkTailoredJobResume(userId: string, jobId: string, resum
   await db.insert(jobApplications).values({ userId, jobId, resumeId, resumeName: resume.name })
     .onConflictDoUpdate({ target: [jobApplications.userId, jobApplications.jobId],
       set: { resumeId, resumeName: resume.name, updatedAt: new Date() },
-      setWhere: eq(jobApplications.status, 'saved') })
+      setWhere: sql`${jobApplications.status} = 'saved' AND ${jobApplications.submittedSource} IS NULL` })
 }

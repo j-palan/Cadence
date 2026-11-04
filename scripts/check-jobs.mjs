@@ -110,6 +110,8 @@ assert.deepEqual(filterJobs(jobs, { ...filters, remote: true }).map(j => j.id), 
 assert.deepEqual(filterJobs(jobs, { ...filters, search: 'other' }).map(j => j.id), ['b'])
 assert.deepEqual(filterJobs(jobs, { ...filters, savedOnly: true }).map(j => j.id), ['c'], 'Closed saved roles remain visible')
 assert.equal(filterJobs(jobs, { ...filters, term: 'Winter' }).length, 0)
+const tracked = { ...job, id: 'tracked', available: false, application: { status: 'applied' } }
+assert.deepEqual(filterJobs([tracked, job], { ...filters, applicationsOnly: true }).map(item => item.id), ['tracked'])
 assert.equal(filterJobs(jobs, { ...filters, term: 'Summer' }).length, 2)
 const multiTerm = { ...job, title: 'Software Intern — Summer or Winter', term: 'Summer 2027' }
 assert.equal(filterJobs([multiTerm], { ...filters, term: 'Winter' }).length, 1)

@@ -12,6 +12,6 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   try {
     const row = await updateJobApplication(session.user.id, params.id, body.data)
     if (!row) return NextResponse.json({ error: 'Job or resume not found.' }, { status: 404 })
-    return NextResponse.json({ application: { status: row.status, resumeId: row.resumeId, resumeName: row.resumeName, appliedAt: row.appliedAt?.toISOString() ?? null, notes: row.notes } })
+    return NextResponse.json({ application: { hasSnapshot: !!row.submittedSource, status: row.status, resumeId: row.resumeId, resumeName: row.resumeName, appliedAt: row.appliedAt?.toISOString() ?? null, notes: row.notes } })
   } catch { return NextResponse.json({ error: 'Could not update application. Try again.' }, { status: 503 }) }
 }
