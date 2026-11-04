@@ -103,7 +103,7 @@ export function TailorDialog({
             disabled={pending || tooShort || !copyName.trim()}
           >
             {pending ? <Loader2 className="animate-spin" /> : <Target />}
-            Create tailored copy
+            Preview tailored copy
           </Button>
         </DialogFooter>
       </DialogContent>

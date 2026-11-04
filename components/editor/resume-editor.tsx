@@ -25,6 +25,7 @@ import {
   type ResumeChatMessage,
 } from '@/components/editor/resume-chat-dialog'
 import { TailorDialog } from '@/components/editor/tailor-dialog'
+import { TailorReviewDialog, type TailorReview } from '@/components/editor/tailor-review-dialog'
 import { UpdateDialog } from '@/components/editor/update-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -105,6 +106,9 @@ export function ResumeEditor({
   const [chatPending, setChatPending] = useState(false)
   const [chatMessages, setChatMessages] = useState<ResumeChatMessage[]>([])
   const [undoSource, setUndoSource] = useState<string | null>(null)
+  const [tailorReview, setTailorReview] = useState<TailorReview | null>(null)
+  const [reviewPending, setReviewPending] = useState(false)
+  const [reviewError, setReviewError] = useState<string | null>(null)
 
   const router = useRouter()
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -380,6 +384,7 @@ export function ResumeEditor({
       const body = (await response.json().catch(() => null)) as {
         source?: string
         resumeId?: string
+        proposalToken?: string
         message?: string
         editCount?: number
         changes?: Array<{ before: string; after: string }>
@@ -397,6 +402,11 @@ export function ResumeEditor({
         throw new Error(body?.error ?? `AI edit failed (${response.status})`)
       }
 
+      if (body.proposalToken) {
+        setReviewError(null)
+        setTailorReview({ token: body.proposalToken, before, after: body.source, name: options.copyName ?? 'Tailored resume', changes: body.changes ?? [] })
+        return
+      }
       if (body.resumeId && body.resumeId !== resume.id) {
         router.replace(`/resume/${body.resumeId}`)
         return
@@ -429,6 +439,19 @@ export function ResumeEditor({
     } finally {
       setChatPending(false)
     }
+  }
+
+  async function acceptTailorReview() {
+    if (!tailorReview || reviewPending) return
+    if (sourceRef.current !== tailorReview.before) { setReviewError('Your resume changed. Discard this preview and generate another.'); return }
+    setReviewPending(true); setReviewError(null)
+    try {
+      const response = await fetch(`/api/resumes/${resume.id}/review`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: tailorReview.token }) })
+      const body = await response.json()
+      if (!response.ok || !body.resumeId) throw new Error(body.error || 'Could not accept these changes.')
+      router.replace(`/resume/${body.resumeId}`)
+    } catch (error) { setReviewError(error instanceof Error ? error.message : 'Could not accept changes.') }
+    finally { setReviewPending(false) }
   }
 
   function runTailorEdit(jobDescription: string, customInstructions: string, copyName: string) {
@@ -674,6 +697,7 @@ export function ResumeEditor({
         pending={chatPending}
         error={tailorError}
       />
+      <TailorReviewDialog review={tailorReview} pending={reviewPending} error={reviewError} onAccept={() => void acceptTailorReview()} onDiscard={() => { setTailorReview(null); setNotice('Tailoring changes discarded. Your resume was left unchanged.') }} />
 
       <Dialog open={logOpen} onOpenChange={setLogOpen}>
         <DialogContent className="max-w-3xl">

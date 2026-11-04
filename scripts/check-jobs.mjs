@@ -25,6 +25,24 @@ assert.equal(preferences.parseBoardPreferences('{broken'), null)
 assert.equal(preferences.parseBoardPreferences(JSON.stringify({ ...remembered, term: 'Spring' })), null)
 assert.equal(preferences.parseBoardPreferences(JSON.stringify({ ...remembered, scroll: -1 })), null)
 assert.notEqual(preferences.boardPreferencesKey('user-a'), preferences.boardPreferencesKey('user-b'))
+const review = load('lib/tailor-review.ts', { 'server-only': {} })
+const previousSecret = process.env.AUTH_SECRET
+const previousNow = Date.now
+try {
+  process.env.AUTH_SECRET = 'offline-review-test-secret'
+  const resumeId = '11111111-1111-4111-8111-111111111111'
+  const token = review.signTailorReview({ userId: 'user-a', resumeId, storedHash: review.sourceDigest('old'), baseHash: review.sourceDigest('old'), source: 'new', copyName: 'Example — intern' })
+  assert.equal(review.verifyTailorReview(token, 'user-a', resumeId).source, 'new')
+  assert.throws(() => review.verifyTailorReview(token, 'user-b', resumeId))
+  assert.throws(() => review.verifyTailorReview(token + 'tampered', 'user-a', resumeId))
+  const expires = Date.now() + 16 * 60000
+  Date.now = () => expires
+  assert.throws(() => review.verifyTailorReview(token, 'user-a', resumeId))
+} finally {
+  Date.now = previousNow
+  if (previousSecret === undefined) delete process.env.AUTH_SECRET
+  else process.env.AUTH_SECRET = previousSecret
+}
 
 const profile = matching.extractProfile(String.raw`
 \newcommand{\templateMetadata}{Kubernetes Rust}

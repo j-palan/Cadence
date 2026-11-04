@@ -3,7 +3,8 @@ import { z } from 'zod'
 
 import { auth } from '@/auth'
 import { resolveEngine } from '@/lib/ai/engine'
-import { createLogImport, createTailoredResume, getResume, updateResumeSource, linkTailoredJobResume } from '@/lib/db/queries'
+import { createLogImport, getResume, updateResumeSource } from '@/lib/db/queries'
+import { signTailorReview, sourceDigest } from '@/lib/tailor-review'
 import { describeGenerationError, MAX_EXISTING_SOURCE_CHARS, MAX_LOG_CHARS } from '@/lib/generate'
 import { generateAndApplyResumeEdits } from '@/lib/generate-edits'
 import { compileLatex, countPdfPages, EngineNotFoundError } from '@/lib/latex'
@@ -173,13 +174,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
       }
     }
 
-    let resumeId = existing.id
+    let proposalToken: string | undefined
     if (body.data.jobDescription) {
-      const copy = await createTailoredResume(session.user.id, existing.id, latexSource,
-        body.data.copyName ?? `${existing.name} — ${body.data.jobDescription.split('\n')[0]}`)
-      if (!copy) return NextResponse.json({ error: 'Resume not found.' }, { status: 404 })
-      resumeId = copy.id
-      if (body.data.jobId) await linkTailoredJobResume(session.user.id, body.data.jobId, copy.id)
+      proposalToken = signTailorReview({ userId: session.user.id, resumeId: existing.id, storedHash: sourceDigest(existing.latexSource), baseHash: sourceDigest(body.data.source), source: latexSource,
+        copyName: (body.data.copyName ?? `${existing.name} — ${body.data.jobDescription.split('\n')[0]}`).slice(0, 120), jobId: body.data.jobId })
     } else if (latexSource !== body.data.source) {
       const saved = await updateResumeSource(session.user.id, existing.id, latexSource)
       if (!saved) return NextResponse.json({ error: 'Resume not found.' }, { status: 404 })
@@ -189,7 +187,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
 
     return NextResponse.json({
-      resumeId,
+      resumeId: existing.id,
+      proposalToken,
       source: latexSource,
       message,
       editCount: edits.length,
