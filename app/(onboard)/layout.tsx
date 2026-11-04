@@ -1,5 +1,4 @@
 import { AccountMenu } from '@/components/auth/account-menu'
-import { HelpDialog } from '@/components/help-dialog'
 import { SiteFooterContent } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { requireUser } from '@/lib/auth-guards'
@@ -20,8 +19,7 @@ export default async function OnboardingLayout({
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader wordmarkHref={null}>
-        <HelpDialog />
-        <AccountMenu user={user} showSettings={false} />
+        <AccountMenu user={user} />
       </SiteHeader>
 
       <div className="flex-1">{children}</div>

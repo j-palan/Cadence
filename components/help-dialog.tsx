@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { HelpCircle } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -43,16 +42,15 @@ export function HelpDialog() {
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
+      <button
+        type="button"
         aria-label="How to use Cadence"
-        title="How to use Cadence"
-        className="text-muted-foreground hover:text-foreground"
+        title="How to use"
+        className="inline-flex items-center gap-1.5 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         onClick={() => setOpen(true)}
       >
-        <HelpCircle />
-      </Button>
+        <HelpCircle aria-hidden="true" className="h-3 w-3" />
+      </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">

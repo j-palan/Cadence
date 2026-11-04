@@ -76,8 +76,8 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
           </a>
         </Button>
         {selectedResume && job.available ? (
-          <Button asChild variant={compact ? 'ghost' : 'outline'} size={compact ? 'icon' : 'default'}>
-            <Link href={`/resume/${selectedResume}?job=${encodeURIComponent(job.id)}`}>
+          <Button asChild variant={compact ? 'ghost' : 'outline'} size={compact ? 'icon' : 'default'} className={compact ? 'h-9 w-9 shrink-0 gap-0 p-0' : undefined}>
+            <Link href={`/resume/${selectedResume}?job=${encodeURIComponent(job.id)}`} title="Tailor your resume for this role">
               <Target aria-hidden="true" /><span className={compact ? 'sr-only' : ''}>Tailor resume{compact ? ` for ${job.title} at ${job.company}` : ''}</span>
             </Link>
           </Button>
@@ -85,6 +85,8 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
         <Button
           variant="ghost"
           size={compact ? 'icon' : 'default'}
+          className={compact ? 'h-9 w-9 shrink-0 gap-0 p-0' : undefined}
+          title={job.saved ? 'Unsave role' : 'Save role'}
           disabled={saving !== null || (!job.available && !job.saved)}
           aria-pressed={job.saved}
           aria-label={`${job.saved ? 'Unsave' : 'Save'} ${job.title} at ${job.company}`}

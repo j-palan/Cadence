@@ -1,9 +1,8 @@
 import { AccountMenu } from '@/components/auth/account-menu'
-import { HelpDialog } from '@/components/help-dialog'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { requireUser } from '@/lib/auth-guards'
-import { JobBoardLink } from '@/components/jobs/job-board-link'
+import { NavigationMenu } from '@/components/navigation-menu'
 
 /**
  * Shell for signed-in pages.
@@ -18,8 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader wordmarkHref="/dashboard">
-        <JobBoardLink />
-        <HelpDialog />
+        <NavigationMenu />
         <AccountMenu user={user} />
       </SiteHeader>
 

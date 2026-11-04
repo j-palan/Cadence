@@ -1,13 +1,10 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
-import Link from 'next/link'
-import { BriefcaseBusiness } from 'lucide-react'
 
 import { EmptyState } from '@/components/dashboard/empty-state'
 import { NewResumeTile } from '@/components/dashboard/new-resume-tile'
 import { ResumeCard } from '@/components/dashboard/resume-card'
 import { JobBoardPreview, JobBoardPreviewLoading } from '@/components/dashboard/job-board-preview'
-import { Button } from '@/components/ui/button'
 import { requireOnboardedUser } from '@/lib/auth-guards'
 import { listResumes } from '@/lib/db/queries'
 import { formatRelativeTime } from '@/lib/utils'
@@ -32,7 +29,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-14">
-      <header className="relative">
+      <header>
         <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
           {greeting()}
           {firstName ? `, ${firstName}` : ''}
@@ -54,9 +51,6 @@ export default async function DashboardPage() {
             </>
           )}
         </p>
-        <Button asChild variant="outline" className="mt-5 sm:absolute sm:right-0 sm:top-0 sm:mt-0">
-          <Link href="/jobs"><BriefcaseBusiness aria-hidden="true" />Open job board</Link>
-        </Button>
       </header>
 
       <div className="mt-10">

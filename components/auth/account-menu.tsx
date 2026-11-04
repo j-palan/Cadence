@@ -1,16 +1,11 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { BriefcaseBusiness, Home, Settings, User as UserIcon } from 'lucide-react'
+import { User as UserIcon } from 'lucide-react'
 
 import { SignOutItem } from '@/components/auth/sign-out-item'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -20,57 +15,18 @@ export interface AccountUser {
   image?: string | null
 }
 
-export function AccountMenu({
-  user,
-  showSettings = true,
-}: {
-  user: AccountUser
-  showSettings?: boolean
-}) {
-  const pathname = usePathname()
-  const settingsHref = pathname.startsWith('/resume/') && pathname !== '/resume/new'
-    ? { pathname: '/settings', query: { returnTo: pathname } }
-    : '/settings'
-
+export function AccountMenu({ user }: { user: AccountUser }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="ml-1 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-card transition-colors hover:border-foreground/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
         {user.image ? (
           <img src={user.image} alt="" className="h-full w-full object-cover" />
         ) : (
-          <UserIcon className="h-4 w-4 text-muted-foreground" />
+          <UserIcon aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
         )}
         <span className="sr-only">Account menu</span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-52">
-        <DropdownMenuLabel className="truncate font-mono text-[11px] normal-case">
-          {user.email}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {/* The wordmark goes to the dashboard once you are signed in, so without
-            this there is no route back out to the public page. */}
-        <DropdownMenuItem asChild>
-          <Link href="/">
-            <Home />
-            Home page
-          </Link>
-        </DropdownMenuItem>
-        {showSettings ? (
-          <DropdownMenuItem asChild>
-            <Link href="/jobs">
-              <BriefcaseBusiness />
-              Job board
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        {showSettings ? (
-          <DropdownMenuItem asChild>
-            <Link href={settingsHref}>
-              <Settings />
-              Settings
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
+      <DropdownMenuContent align="end">
         <SignOutItem />
       </DropdownMenuContent>
     </DropdownMenu>
