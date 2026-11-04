@@ -103,8 +103,8 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
       </Button>
       <header>
         <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Your next role</p>
-        <h1 className="text-display-sm mt-2">SWE internships</h1>
-        <p className="mt-3 text-sm text-muted-foreground">US and Canada · Direct employer postings · Matched to your resume</p>
+        <h1 className="text-display-sm mt-2">Job board</h1>
+        <p className="mt-3 text-sm text-muted-foreground">Software engineering internships · US and Canada · Matched to your resume</p>
         <p className="mt-2 text-xs text-muted-foreground">
           Checked every 3 hours{sources.lastChecked ? ` · Last checked ${formatRelativeTime(sources.lastChecked)}` : ''}
         </p>
@@ -187,7 +187,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
             const remaining = group.jobs.length - 2
             const companyId = `company-${encodeURIComponent(group.company)}`
             return (
-              <section key={group.company} aria-label={`${group.company} internships`} className="overflow-hidden rounded-xl border border-border bg-card">
+              <section key={group.company} aria-label={`${group.company} roles`} className="overflow-hidden rounded-xl border border-border bg-card">
                 <header className="flex items-center gap-3 border-b border-border bg-muted/20 px-4 py-3">
                   <CompanyAvatar company={group.company} />
                   <div className="min-w-0 flex-1">
@@ -229,7 +229,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
           })}
           {!filtered.length ? (
             <div className="rounded-xl border border-dashed border-border px-6 py-20 text-center">
-              <h2 className="text-lg font-semibold tracking-tight">{tab === 'saved' ? 'No saved roles here yet' : 'No internships found'}</h2>
+              <h2 className="text-lg font-semibold tracking-tight">{tab === 'saved' ? 'No saved roles here yet' : 'No roles found'}</h2>
               <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
                 {tab === 'saved' ? 'Save a role to come back to it later.' : 'Try broadening your filters. New roles appear as employers publish them.'}
               </p>

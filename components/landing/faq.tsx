@@ -23,6 +23,10 @@ interface Faq {
 
 const FAQS: Faq[] = [
   {
+    q: 'What can I find on the job board?',
+    a: 'The job board currently focuses on software engineering internships and co-ops in the US and Canada. It checks direct employer feeds every three hours when the board is visited, groups postings by company, and lets you save roles. Choose a resume to see the technical skills it shares with each posting, then open the existing tailoring flow for a role you like. Fit scores need no API key; AI tailoring uses your connected model. Scores describe resume overlap, not the chance of getting hired.',
+  },
+  {
     q: 'Do I have to write the log myself?',
     a: "No — that's the point. You paste a short instruction into your coding agent's config once, and from then on it appends each win to a markdown file as the work happens. Claude Code, Cursor, GitHub Copilot, and Codex have a snippet ready in onboarding. The general option works with any agent that reads an instructions file; the snippet is plain English, not an integration.",
   },

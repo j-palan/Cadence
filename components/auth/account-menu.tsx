@@ -59,7 +59,7 @@ export function AccountMenu({
           <DropdownMenuItem asChild>
             <Link href="/jobs">
               <BriefcaseBusiness />
-              SWE internships
+              Job board
             </Link>
           </DropdownMenuItem>
         ) : null}

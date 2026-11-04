@@ -53,7 +53,7 @@ export default async function DashboardPage() {
           )}
         </p>
         <Button asChild variant="outline" className="mt-5 sm:absolute sm:right-0 sm:top-0 sm:mt-0">
-          <Link href="/jobs"><BriefcaseBusiness aria-hidden="true" />SWE internships</Link>
+          <Link href="/jobs"><BriefcaseBusiness aria-hidden="true" />Open job board</Link>
         </Button>
       </header>
 

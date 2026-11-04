@@ -7,7 +7,7 @@ import { extractProfile, matchJob } from '@/lib/jobs/matching'
 import { JOB_SOURCES, STALE_MS } from '@/lib/jobs/sources'
 import { syncJobs } from '@/lib/jobs/sync'
 
-export const metadata: Metadata = { title: 'SWE internships' }
+export const metadata: Metadata = { title: 'Job board' }
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 

@@ -35,6 +35,9 @@ export function SiteFooterContent() {
         </p>
 
         <nav className="flex flex-wrap items-center gap-4">
+          <Link href="/jobs" className="transition-colors hover:text-foreground">
+            Job board
+          </Link>
           <a
             href={`mailto:${CONTACT_EMAIL}?subject=Cadence`}
             className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
