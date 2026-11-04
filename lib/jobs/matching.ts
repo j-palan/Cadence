@@ -1,5 +1,5 @@
 /** Deterministic, versioned resume evidence matching. No provider or network calls. */
-export const MATCH_VERSION = 1
+export const MATCH_VERSION = 2
 const skills: Record<string, string[]> = {
   JavaScript: ['javascript', 'js'], TypeScript: ['typescript'], Python: ['python'],
   Java: ['java'], 'C++': ['c++'], 'C#': ['c#', 'csharp'], C: ['c'], Go: ['golang', 'go'],
@@ -39,20 +39,54 @@ export function extractProfile(source: string): ResumeProfile {
   const text = resumeText(source)
   return { text, skills: Object.entries(skills).filter(([, aliases]) => aliases.some(a => contains(text, a))).map(([name]) => name) }
 }
+export type Importance = 'required' | 'preferred' | 'general'
 export interface Match {
   score: number | null
   matched: string[]
   missing: string[]
   criteria: number
+  requirements: { skill: string; importance: Importance; weight: number; matched: boolean }[]
+  eligibility: { graduation: string[]; authorization: string[]; availability: string[] }
   evidence: { skill: string; text: string }[]
 }
+
+function analyzePosting(description: string) {
+  const found = new Map<string, Importance>()
+  const priority = { preferred: 1, general: 2, required: 3 }
+  const eligibility: Match['eligibility'] = { graduation: [], authorization: [], availability: [] }
+  let section: Importance = 'general'
+  for (const raw of description.split(/\n|(?<=[.!?])\s+/)) {
+    const line = raw.trim()
+    if (!line) continue
+    if (line.length < 100) {
+      if (/^(?:nice.to.have|preferred|bonus|desired|additional qualifications)/i.test(line)) section = 'preferred'
+      else if (/^(?:requirements|qualifications|minimum qualifications|basic qualifications|required|what (?:you bring|we.re looking for|you.ll need))/i.test(line)) section = 'required'
+      else if (/^(?:responsibilities|benefits|about us|what you.ll do|compensation|our team)/i.test(line)) section = 'general'
+    }
+    const importance: Importance = /nice.to.have|preferred|bonus|a plus|ideally|desired/i.test(line) ? 'preferred'
+      : /\b(required|must|minimum|mandatory)\b/i.test(line) ? 'required' : section
+    for (const [skill, aliases] of Object.entries(skills)) {
+      if (aliases.some(alias => contains(line, alias)) && (!found.has(skill) || priority[importance] > priority[found.get(skill)!])) found.set(skill, importance)
+    }
+    const excerpt = line.slice(0, 300)
+    if (/graduat|pursuing|enrolled|bachelor|master.s degree|university degree/i.test(line)) eligibility.graduation.push(excerpt)
+    if (/work authori[sz]|visa|sponsor|citizen|eligible to work|right to work/i.test(line)) eligibility.authorization.push(excerpt)
+    if (/availab|(?:internship|program).{0,50}(?:weeks|months)|(?:start|begin).{0,40}20\d{2}|return.{0,30}(?:school|university)/i.test(line)) eligibility.availability.push(excerpt)
+  }
+  for (const key of Object.keys(eligibility) as (keyof typeof eligibility)[]) eligibility[key] = Array.from(new Set(eligibility[key])).slice(0, 3)
+  return { found, eligibility, priority }
+}
+
 export function matchJob(profile: ResumeProfile | null, description: string): Match {
-  const criteria = Object.entries(skills).filter(([, aliases]) => aliases.some(a => contains(description, a))).map(([name]) => name)
-  const matched = profile ? criteria.filter(s => profile.skills.includes(s)) : []
-  const missing = profile ? criteria.filter(s => !profile.skills.includes(s)) : []
+  const { found, eligibility, priority } = analyzePosting(description)
+  const requirements = Array.from(found, ([skill, importance]) => ({ skill, importance, weight: priority[importance], matched: !!profile?.skills.includes(skill) }))
+  const matched = profile ? requirements.filter(item => item.matched).map(item => item.skill) : []
+  const missing = profile ? requirements.filter(item => !item.matched).map(item => item.skill) : []
+  const total = requirements.reduce((sum, item) => sum + item.weight, 0)
+  const overlap = requirements.reduce((sum, item) => sum + (item.matched ? item.weight : 0), 0)
   return {
-    score: profile && profile.text.length >= 50 && criteria.length ? Math.round(matched.length / criteria.length * 100) : null,
-    matched, missing, criteria: criteria.length,
+    score: profile && profile.text.length >= 50 && total ? Math.round(overlap / total * 100) : null,
+    matched, missing, criteria: requirements.length, requirements, eligibility,
     evidence: matched.map(skill => {
       const aliases = skills[skill]
       const index = aliases.map(a => profile!.text.toLowerCase().indexOf(a)).filter(i => i >= 0).sort((a,b) => a-b)[0] ?? 0

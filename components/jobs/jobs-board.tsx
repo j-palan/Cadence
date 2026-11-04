@@ -277,7 +277,15 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
                 </div>
               </section>
             ) : null}
-            <p className="mt-5 text-xs leading-relaxed text-muted-foreground">Eligibility unverified: graduation date, work authorization, and availability. Remote roles may have geographic restrictions.</p>
+            <section className="mt-5 space-y-3 border-t border-border pt-5" aria-label="Requirements and eligibility">
+              <h3 className="text-sm font-semibold">Requirements & eligibility</h3>
+              {(['required', 'preferred', 'general'] as const).map(importance => {
+                const criteria = detail.match.requirements.filter(item => item.importance === importance)
+                return criteria.length ? <div key={importance}><p className="text-xs font-medium capitalize">{importance} skills</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{criteria.map(item => `${item.skill}${item.matched ? ' ✓' : ' — no resume evidence'}`).join(' · ')}</p></div> : null
+              })}
+              {([['graduation', 'Education & graduation'], ['authorization', 'Work authorization'], ['availability', 'Availability']] as const).map(([key, label]) => <div key={key}><p className="text-xs font-medium">{label} · Verify eligibility</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{detail.match.eligibility[key].join(' ') || 'Not specified in the posting.'}</p></div>)}
+              <p className="text-xs text-muted-foreground">Eligibility is separate from the fit score. Remote roles may have geographic restrictions.</p>
+            </section>
             <section className="mt-5 border-t border-border pt-5" aria-label="Job description">
               <h3 className="text-sm font-semibold">Job description</h3>
               <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{detail.description}</p>
@@ -292,7 +300,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
             <DialogDescription>A guide to the evidence in your resume, not a prediction of hiring outcomes.</DialogDescription>
           </DialogHeader>
           <div className="mt-5 space-y-4 text-sm leading-relaxed text-muted-foreground">
-            <p>The score is the percentage of recognized technical skills in the posting that also appear in your selected resume. Required and preferred skills count equally. Unrecognized requirements are not scored.</p>
+            <p>The score measures recognized technical skills in the posting that appear in your resume. Required skills count 3 points, unspecified skills 2, and preferred skills 1. Section headings and wording determine the category; unrecognized skills are not scored.</p>
             <p>Missing evidence means a skill wasn’t found in this resume. Scores don’t assess proficiency or represent an employer’s ATS score.</p>
             <p>Graduation date, work authorization, and availability are unverified. Review the employer’s requirements before applying.</p>
             <p>After saving changes in the editor, return here and refresh matches to update your scores. Scoring runs without an API key; AI tailoring uses your connected model.</p>
