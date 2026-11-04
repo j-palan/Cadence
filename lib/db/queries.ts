@@ -1,7 +1,7 @@
 import { and, desc, eq, sql, gt } from 'drizzle-orm'
 
 import { db } from './index'
-import { logImports, resumes, users, jobs, jobSources, savedJobs } from './schema'
+import { logImports, resumes, users, jobs, jobSources, savedJobs, jobApplications } from './schema'
 import type { LogImport, Resume, User } from './schema'
 
 export class DuplicateResumeNameError extends Error {
@@ -335,9 +335,10 @@ export async function listJobSources(_principal: string | null) {
 export async function listJobs(userId: string) {
   // Include closed/stale saved roles so they do not disappear from a user's list.
   const fresh = new Date(Date.now() - 48 * 3600000)
-  return db.select({ job: jobs, savedAt: savedJobs.createdAt }).from(jobs)
+  return db.select({ job: jobs, savedAt: savedJobs.createdAt, application: jobApplications }).from(jobs)
     .leftJoin(savedJobs, and(eq(savedJobs.jobId, jobs.id), eq(savedJobs.userId, userId)))
-    .where(sql`(${jobs.active} = true AND ${jobs.checkedAt} > ${fresh}) OR ${savedJobs.userId} = ${userId}`)
+    .leftJoin(jobApplications, and(eq(jobApplications.jobId, jobs.id), eq(jobApplications.userId, userId)))
+    .where(sql`(${jobs.active} = true AND ${jobs.checkedAt} > ${fresh}) OR ${savedJobs.userId} = ${userId} OR ${jobApplications.userId} = ${userId}`)
     .orderBy(desc(jobs.firstSeenAt)).limit(1000)
 }
 export async function getJob(_userId: string, jobId: string) {
@@ -369,4 +370,42 @@ export async function createTailoredResume(userId: string, sourceId: string, lat
     }
   }
   throw new DuplicateResumeNameError()
+}
+
+export async function getJobApplication(userId: string, jobId: string) {
+  const [row] = await db.select().from(jobApplications).where(and(eq(jobApplications.userId, userId), eq(jobApplications.jobId, jobId))).limit(1)
+  return row ?? null
+}
+
+export async function updateJobApplication(userId: string, jobId: string, input: {
+  status: 'saved' | 'applied' | 'interviewing' | 'closed'; resumeId: string | null; notes: string
+}) {
+  if (!await getJob(userId, jobId)) return null
+  const selected = input.resumeId ? await getResume(userId, input.resumeId) : null
+  if (input.resumeId && !selected) return null
+  const existing = await getJobApplication(userId, jobId)
+  const submitted = input.status === 'applied' || input.status === 'interviewing'
+  // Freeze the first submitted source. Later editor changes cannot rewrite it.
+  const snapshot = existing?.submittedSource ?? (submitted ? selected?.latexSource ?? null : null)
+  const [row] = await db.insert(jobApplications).values({
+    userId, jobId, status: input.status, notes: input.notes, resumeId: selected?.id ?? null,
+    resumeName: existing?.submittedSource ? existing.resumeName : selected?.name ?? null,
+    submittedSource: snapshot, appliedAt: existing?.appliedAt ?? (submitted ? new Date() : null),
+  }).onConflictDoUpdate({ target: [jobApplications.userId, jobApplications.jobId], set: {
+    status: input.status, notes: input.notes,
+    resumeId: existing?.submittedSource ? existing.resumeId : selected?.id ?? null,
+    resumeName: sql`coalesce(case when ${jobApplications.submittedSource} is not null then ${jobApplications.resumeName} end, excluded.resume_name)`,
+    submittedSource: sql`coalesce(${jobApplications.submittedSource}, excluded.submitted_source)`,
+    appliedAt: sql`coalesce(${jobApplications.appliedAt}, excluded.applied_at)`, updatedAt: new Date(),
+  } }).returning()
+  return row
+}
+
+export async function linkTailoredJobResume(userId: string, jobId: string, resumeId: string) {
+  const resume = await getResume(userId, resumeId)
+  if (!resume || !await getJob(userId, jobId)) return
+  await db.insert(jobApplications).values({ userId, jobId, resumeId, resumeName: resume.name })
+    .onConflictDoUpdate({ target: [jobApplications.userId, jobApplications.jobId],
+      set: { resumeId, resumeName: resume.name, updatedAt: new Date() },
+      setWhere: eq(jobApplications.status, 'saved') })
 }

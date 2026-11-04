@@ -34,7 +34,8 @@ export default async function JobsPage({ searchParams }: { searchParams: { resum
     seen.add(key)
     return true
   })
-  const postings = deduplicated.map(({ job, savedAt }) => ({
+  const postings = deduplicated.map(({ job, savedAt, application }) => ({
+    application: application ? { status: application.status, resumeId: application.resumeId, resumeName: application.resumeName, appliedAt: application.appliedAt?.toISOString() ?? null, notes: application.notes } : null,
     id: job.id, company: job.company, title: job.title, location: job.location,
     countries: job.countries, remote: job.remote, term: job.term,
     description: job.description, url: job.url,

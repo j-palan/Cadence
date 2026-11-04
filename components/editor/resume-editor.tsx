@@ -60,6 +60,7 @@ type SaveState = 'saved' | 'dirty' | 'saving' | 'error'
 type CompileState = 'idle' | 'compiling' | 'ok' | 'failed' | 'unavailable'
 
 export interface ResumeEditorProps {
+  initialJobId?: string
   initialJobDescription?: string
   resume: {
     id: string
@@ -78,6 +79,7 @@ export function ResumeEditor({
   lastLogImportedAt,
   aiSettings: initialAiSettings,
   initialJobDescription,
+  initialJobId,
 }: ResumeEditorProps) {
   const [source, setSource] = useState(resume.latexSource)
   const [name, setName] = useState(resume.name)
@@ -372,6 +374,7 @@ export function ResumeEditor({
           jobDescription: options.jobDescription,
           workLog: options.workLog,
           copyName: options.copyName,
+          jobId: options.jobDescription ? initialJobId : undefined,
         }),
       })
       const body = (await response.json().catch(() => null)) as {

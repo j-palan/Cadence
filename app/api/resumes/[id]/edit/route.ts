@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 import { auth } from '@/auth'
 import { resolveEngine } from '@/lib/ai/engine'
-import { createLogImport, createTailoredResume, getResume, updateResumeSource } from '@/lib/db/queries'
+import { createLogImport, createTailoredResume, getResume, updateResumeSource, linkTailoredJobResume } from '@/lib/db/queries'
 import { describeGenerationError, MAX_EXISTING_SOURCE_CHARS, MAX_LOG_CHARS } from '@/lib/generate'
 import { generateAndApplyResumeEdits } from '@/lib/generate-edits'
 import { compileLatex, countPdfPages, EngineNotFoundError } from '@/lib/latex'
@@ -19,6 +19,7 @@ const bodySchema = z.object({
   jobDescription: z.string().trim().min(50).max(20_000).optional(),
   workLog: z.string().trim().min(20).max(MAX_LOG_CHARS).optional(),
   copyName: z.string().trim().min(1).max(120).optional(),
+  jobId: z.string().max(200).optional(),
 })
 
 type RequiredEntry = { label: string; employer: string; title: string }
@@ -178,6 +179,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         body.data.copyName ?? `${existing.name} — ${body.data.jobDescription.split('\n')[0]}`)
       if (!copy) return NextResponse.json({ error: 'Resume not found.' }, { status: 404 })
       resumeId = copy.id
+      if (body.data.jobId) await linkTailoredJobResume(session.user.id, body.data.jobId, copy.id)
     } else if (latexSource !== body.data.source) {
       const saved = await updateResumeSource(session.user.id, existing.id, latexSource)
       if (!saved) return NextResponse.json({ error: 'Resume not found.' }, { status: 404 })

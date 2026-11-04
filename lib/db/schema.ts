@@ -169,3 +169,15 @@ export const savedJobs = pgTable('saved_jobs', {
 }, (t) => ({ pk: primaryKey({ columns: [t.userId, t.jobId] }) }))
 
 export type Job = typeof jobs.$inferSelect
+
+export const jobApplications = pgTable('job_applications', {
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
+  status: text('status').$type<'saved' | 'applied' | 'interviewing' | 'closed'>().notNull().default('saved'),
+  resumeId: uuid('resume_id').references(() => resumes.id, { onDelete: 'set null' }),
+  resumeName: text('resume_name'),
+  submittedSource: text('submitted_source'),
+  appliedAt: timestamp('applied_at'),
+  notes: text('notes').notNull().default(''),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({ pk: primaryKey({ columns: [t.userId, t.jobId] }) }))

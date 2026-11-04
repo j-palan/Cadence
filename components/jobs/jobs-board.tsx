@@ -16,6 +16,8 @@ import { Select } from '@/components/ui/select'
 import { InstantTooltip } from '@/components/ui/instant-tooltip'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CompanyAvatar } from '@/components/jobs/company-avatar'
+import { ApplicationTracker } from '@/components/jobs/application-tracker'
+import { APPLICATION_LABELS, type JobApplication } from '@/lib/jobs/application-status'
 import { filterJobs, groupJobsByCompany, type BoardJob } from '@/lib/jobs/board'
 import { formatRelativeTime } from '@/lib/utils'
 import { INTERNSHIP_TERMS, jobTerms } from '@/lib/jobs/normalize'
@@ -40,13 +42,14 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
   const [sort, setSort] = useState('fit')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({})
+  const [applications, setApplications] = useState<Record<string, JobApplication>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [detailId, setDetailId] = useState<string | null>(initialJobId ?? null)
   const [methodOpen, setMethodOpen] = useState(false)
 
-  const currentJobs = useMemo(() => jobs.map(job => ({ ...job, term: jobTerms(job).join(' / ') || 'Not specified', saved: bookmarks[job.id] ?? job.saved })), [jobs, bookmarks])
-  const filtered = useMemo(() => filterJobs(currentJobs, { search, country, term, remote, savedOnly: tab === 'saved', sort }), [currentJobs, search, country, term, remote, tab, sort])
+  const currentJobs = useMemo(() => jobs.map(job => ({ ...job, application: applications[job.id] ?? job.application, term: jobTerms(job).join(' / ') || 'Not specified', saved: bookmarks[job.id] ?? job.saved })), [jobs, bookmarks, applications])
+  const filtered = useMemo(() => filterJobs(currentJobs, { search, country, term, remote, savedOnly: tab === 'saved', applicationsOnly: tab === 'applications', sort }), [currentJobs, search, country, term, remote, tab, sort])
   const companies = useMemo(() => groupJobsByCompany(filtered), [filtered])
   const detail = currentJobs.find(job => job.id === detailId)
 
@@ -175,6 +178,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
           <TabsList aria-label="Job lists">
             <TabsTrigger value="all">Open roles</TabsTrigger>
             <TabsTrigger value="saved">Saved{currentJobs.some(job => job.saved) ? ` (${currentJobs.filter(job => job.saved).length})` : ''}</TabsTrigger>
+            <TabsTrigger value="applications">Applications</TabsTrigger>
           </TabsList>
           <Button variant="ghost" size="sm" disabled={pending} onClick={() => startTransition(() => router.refresh())}>
             {pending ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}Refresh matches
@@ -207,6 +211,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
                           <h3 className="line-clamp-2">{job.title}</h3>
                         </button>
                         <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{job.location}{job.remote ? ' · Remote' : ''}{job.term !== 'Not specified' ? ` · ${job.term}` : ''}</p>
+                        {job.application ? <Badge variant="muted" className="mt-1">{APPLICATION_LABELS[job.application.status]}</Badge> : null}
                         {!job.available ? <p className="mt-1 text-xs text-destructive">Closed or no longer verified</p> : null}
                       </div>
                       <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
@@ -252,6 +257,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
               </DialogHeader>
             </div>
             <div className="mt-5 flex flex-wrap gap-2">{jobActions(detail)}</div>
+            <ApplicationTracker key={detail.id} jobId={detail.id} application={detail.application} resumes={resumes} selectedResume={selectedResume} onChange={application => setApplications(current => ({ ...current, [detail.id]: application }))} />
             {!detail.available ? <p className="mt-4 text-sm text-destructive">This role is closed or no longer verified.</p> : null}
             <section className="mt-5 space-y-2 text-sm leading-relaxed" aria-label="Resume fit">
               <Badge variant={detail.match.score !== null && detail.match.score >= 70 ? 'success' : 'outline'}>

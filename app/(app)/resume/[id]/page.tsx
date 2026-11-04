@@ -42,6 +42,7 @@ export default async function ResumePage({ params, searchParams }: {
     <ResumeEditor
       key={`${resume.id}:${job?.id ?? ''}`}
       initialJobDescription={initialJobDescription}
+      initialJobId={job?.id}
       resume={{
         id: resume.id,
         name: resume.name,
