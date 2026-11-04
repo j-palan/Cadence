@@ -39,3 +39,15 @@ export function filterJobs(jobs: BoardJob[], filters: BoardFilters): BoardJob[] 
     return filters.sort === 'newest' ? newest : (b.match.score ?? -1) - (a.match.score ?? -1) || newest
   })
 }
+
+/** Keep each company's best/newest role first, preserving the selected sort. */
+export function groupJobsByCompany(sortedJobs: BoardJob[]): { company: string; jobs: BoardJob[] }[] {
+  const groups = new Map<string, { company: string; jobs: BoardJob[] }>()
+  for (const job of sortedJobs) {
+    const key = job.company.trim().toLowerCase()
+    const group = groups.get(key)
+    if (group) group.jobs.push(job)
+    else groups.set(key, { company: job.company, jobs: [job] })
+  }
+  return Array.from(groups.values())
+}

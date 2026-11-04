@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Bookmark, ExternalLink, Loader2, Target } from 'lucide-react'
+import { ArrowLeft, Bookmark, ChevronDown, ChevronUp, ExternalLink, Loader2, Target } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { filterJobs, type BoardJob } from '@/lib/jobs/board'
+import { CompanyAvatar } from '@/components/jobs/company-avatar'
+import { filterJobs, groupJobsByCompany, type BoardJob } from '@/lib/jobs/board'
 import { formatRelativeTime } from '@/lib/utils'
 
 interface Props {
@@ -34,7 +35,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
   const [remote, setRemote] = useState(false)
   const [tab, setTab] = useState('all')
   const [sort, setSort] = useState('fit')
-  const [limit, setLimit] = useState(30)
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +44,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
 
   const currentJobs = useMemo(() => jobs.map(job => ({ ...job, saved: bookmarks[job.id] ?? job.saved })), [jobs, bookmarks])
   const filtered = useMemo(() => filterJobs(currentJobs, { search, country, term, remote, savedOnly: tab === 'saved', sort }), [currentJobs, search, country, term, remote, tab, sort])
+  const companies = useMemo(() => groupJobsByCompany(filtered), [filtered])
   const detail = currentJobs.find(job => job.id === detailId)
   const terms = Array.from(new Set(jobs.map(job => job.term))).sort()
 
@@ -64,30 +66,31 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
     }
   }
 
-  function jobActions(job: BoardJob) {
+  function jobActions(job: BoardJob, compact = false) {
     return (
       <>
-        <Button asChild>
+        <Button asChild size={compact ? 'sm' : 'default'} variant={compact ? 'outline' : 'default'}>
           <a href={job.url} target="_blank" rel="noopener noreferrer">
             {job.available ? 'Apply' : 'Employer site'}<ExternalLink aria-hidden="true" />
           </a>
         </Button>
         {selectedResume && job.available ? (
-          <Button asChild variant="outline">
+          <Button asChild variant={compact ? 'ghost' : 'outline'} size={compact ? 'icon' : 'default'}>
             <Link href={`/resume/${selectedResume}?job=${encodeURIComponent(job.id)}`}>
-              <Target aria-hidden="true" />Tailor resume
+              <Target aria-hidden="true" /><span className={compact ? 'sr-only' : ''}>Tailor resume{compact ? ` for ${job.title} at ${job.company}` : ''}</span>
             </Link>
           </Button>
         ) : null}
         <Button
           variant="ghost"
+          size={compact ? 'icon' : 'default'}
           disabled={saving !== null || (!job.available && !job.saved)}
           aria-pressed={job.saved}
           aria-label={`${job.saved ? 'Unsave' : 'Save'} ${job.title} at ${job.company}`}
           onClick={() => toggleSave(job)}
         >
           {saving === job.id ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Bookmark aria-hidden="true" className={job.saved ? 'fill-current' : ''} />}
-          {job.saved ? 'Saved' : 'Save'}
+          <span className={compact ? 'sr-only' : ''}>{job.saved ? 'Saved' : 'Save'}</span>
         </Button>
       </>
     )
@@ -107,9 +110,9 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
         </p>
       </header>
 
-      <Card className="mt-10">
-        <CardContent className="p-5">
-          <div className="grid gap-4 sm:grid-cols-2">
+      <Card className="mt-6">
+        <CardContent className="p-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div className="space-y-1.5">
               <Label htmlFor="match-resume" className="text-xs text-muted-foreground">Match against</Label>
               <Select id="match-resume" value={selectedResume} disabled={!resumes.length || pending}
@@ -120,17 +123,8 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="job-search" className="text-xs text-muted-foreground">Search roles</Label>
-              <Input id="job-search" value={search} placeholder="Company, role, or city" onChange={event => { setSearch(event.target.value); setLimit(30) }} />
+              <Input id="job-search" value={search} placeholder="Company, role, or city" onChange={event => setSearch(event.target.value)} />
             </div>
-          </div>
-          {!hasProfile ? (
-            <p className="mt-3 text-sm text-muted-foreground">
-              <Link href={selectedResume ? `/resume/${selectedResume}` : '/resume/new'} className="text-foreground underline underline-offset-4">
-                {selectedResume ? 'Add content to your resume' : 'Create a resume'}
-              </Link> to see fit scores. No API key needed.
-            </p>
-          ) : null}
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="job-country" className="text-xs text-muted-foreground">Country</Label>
               <Select id="job-country" value={country} onChange={event => setCountry(event.target.value)}>
@@ -150,7 +144,14 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
               </Select>
             </div>
           </div>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          {!hasProfile ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              <Link href={selectedResume ? `/resume/${selectedResume}` : '/resume/new'} className="text-foreground underline underline-offset-4">
+                {selectedResume ? 'Add content to your resume' : 'Create a resume'}
+              </Link> to see fit scores. No API key needed.
+            </p>
+          ) : null}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
               <Checkbox checked={remote} onCheckedChange={checked => setRemote(checked === true)} />Remote roles only
             </label>
@@ -166,7 +167,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
       ) : null}
       {error ? <p role="alert" className="mt-4 text-sm text-destructive">{error}</p> : null}
 
-      <Tabs value={tab} onValueChange={value => { setTab(value); setLimit(30) }} className="mt-6">
+      <Tabs value={tab} onValueChange={setTab} className="mt-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <TabsList aria-label="Job lists">
             <TabsTrigger value="all">Open roles</TabsTrigger>
@@ -177,35 +178,55 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
           </Button>
         </div>
         <p role="status" className="my-4 text-xs text-muted-foreground">
-          {pending ? 'Updating matches…' : `${filtered.length} ${filtered.length === 1 ? 'role' : 'roles'}`}
+          {pending ? 'Updating matches…' : `${filtered.length} ${filtered.length === 1 ? 'role' : 'roles'} across ${companies.length} ${companies.length === 1 ? 'company' : 'companies'}`}
         </p>
         <div className="space-y-4" aria-busy={pending}>
-          {filtered.slice(0, limit).map(job => (
-            <article key={job.id} className="rounded-xl border border-border bg-card p-5 transition-colors hover:border-foreground/20">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{job.company}</p>
-                  <h2 className="mt-1 text-sm font-semibold">{job.title}</h2>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{job.location}{job.remote ? ' · Remote' : ''}</p>
+          {companies.map(group => {
+            const isExpanded = !!expanded[group.company]
+            const preview = isExpanded ? group.jobs : group.jobs.slice(0, 2)
+            const remaining = group.jobs.length - 2
+            const companyId = `company-${encodeURIComponent(group.company)}`
+            return (
+              <section key={group.company} aria-label={`${group.company} internships`} className="overflow-hidden rounded-xl border border-border bg-card">
+                <header className="flex items-center gap-3 border-b border-border bg-muted/20 px-4 py-3">
+                  <CompanyAvatar company={group.company} />
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-sm font-semibold">{group.company}</h2>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{group.jobs.length} {group.jobs.length === 1 ? 'opportunity' : 'opportunities'}</p>
+                  </div>
+                  <span className="hidden text-xs text-muted-foreground sm:block">{sort === 'fit' ? 'Best matches first' : 'Newest first'}</span>
+                </header>
+                <div id={companyId} className="divide-y divide-border">
+                  {preview.map(job => (
+                    <article key={job.id} className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-muted/20 sm:flex-row sm:items-center sm:gap-4">
+                      <div className="min-w-0 flex-1">
+                        <button type="button" className="block max-w-full rounded text-left text-sm font-medium leading-snug underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setDetailId(job.id)} aria-label={`View ${job.title} at ${job.company}`}>
+                          <h3 className="line-clamp-2">{job.title}</h3>
+                        </button>
+                        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{job.location}{job.remote ? ' · Remote' : ''}{job.term !== 'Not specified' ? ` · ${job.term}` : ''}</p>
+                        {!job.available ? <p className="mt-1 text-xs text-destructive">Closed or no longer verified</p> : null}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
+                        <button type="button" className="mr-2 inline-flex min-h-11 items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setDetailId(job.id)} aria-label={`View fit evidence for ${job.title} at ${job.company}`}>
+                          <Badge variant={job.match.score !== null && job.match.score >= 70 ? 'success' : 'outline'} className="tabular-nums">
+                            {job.match.score === null ? 'Unscored' : `${job.match.score}% fit`}
+                          </Badge>
+                        </button>
+                        {jobActions(job, true)}
+                      </div>
+                    </article>
+                  ))}
                 </div>
-                <Badge variant="outline" className="shrink-0">{job.match.score === null ? 'Unscored' : `${job.match.score}% fit`}</Badge>
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">{job.term} · Found {formatRelativeTime(job.firstSeenAt)} · Checked {formatRelativeTime(job.checkedAt)}</p>
-              {!job.available ? <p className="mt-3 text-xs text-destructive">Closed or no longer verified. Check the employer’s site for availability.</p> : null}
-              <div className="mt-4 space-y-1.5 text-xs leading-relaxed">
-                {job.match.score !== null ? (
-                  <>
-                    <p><span className="font-medium">Matches: </span>{job.match.matched.join(', ') || 'No recognized skills in common yet'}</p>
-                    <p className="text-muted-foreground"><span className="font-medium">No resume evidence: </span>{job.match.missing.join(', ') || 'All recognized skills found'}</p>
-                  </>
-                ) : <p className="text-muted-foreground">{hasProfile ? 'Not enough recognized requirements to calculate a score.' : 'Choose a resume with content to see your match.'}</p>}
-              </div>
-              <div className="mt-5 flex flex-wrap items-center gap-2">
-                {jobActions(job)}
-                <Button variant="link" size="sm" onClick={() => setDetailId(job.id)} aria-label={`View ${job.title} at ${job.company}`}>View posting</Button>
-              </div>
-            </article>
-          ))}
+                {remaining > 0 ? (
+                  <button type="button" aria-expanded={isExpanded} aria-controls={companyId}
+                    className="flex min-h-11 w-full items-center justify-center gap-1.5 border-t border-border px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    onClick={() => setExpanded(old => ({ ...old, [group.company]: !isExpanded }))}>
+                    {isExpanded ? <><ChevronUp aria-hidden="true" className="h-3.5 w-3.5" />Show fewer roles</> : <><ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />{remaining} more {group.company} {remaining === 1 ? 'role' : 'roles'}</>}
+                  </button>
+                ) : null}
+              </section>
+            )
+          })}
           {!filtered.length ? (
             <div className="rounded-xl border border-dashed border-border px-6 py-20 text-center">
               <h2 className="text-lg font-semibold tracking-tight">{tab === 'saved' ? 'No saved roles here yet' : 'No internships found'}</h2>
@@ -216,17 +237,29 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
           ) : null}
         </div>
       </Tabs>
-      {filtered.length > limit ? <div className="mt-6 text-center"><Button variant="outline" onClick={() => setLimit(value => value + 30)}>Show more roles</Button></div> : null}
 
       <Dialog open={!!detail} onOpenChange={open => { if (!open) setDetailId(null) }}>
         <DialogContent className="max-h-[85dvh] max-w-2xl overflow-y-auto">
           {detail ? <>
-            <DialogHeader>
-              <DialogTitle>{detail.title}</DialogTitle>
-              <DialogDescription>{detail.company} · {detail.location}</DialogDescription>
-            </DialogHeader>
+            <div className="flex items-start gap-3 pr-6">
+              <CompanyAvatar company={detail.company} />
+              <DialogHeader>
+                <DialogTitle>{detail.title}</DialogTitle>
+                <DialogDescription>{detail.company} · {detail.location}</DialogDescription>
+              </DialogHeader>
+            </div>
             <div className="mt-5 flex flex-wrap gap-2">{jobActions(detail)}</div>
             {!detail.available ? <p className="mt-4 text-sm text-destructive">This role is closed or no longer verified.</p> : null}
+            <section className="mt-5 space-y-2 text-sm leading-relaxed" aria-label="Resume fit">
+              <Badge variant={detail.match.score !== null && detail.match.score >= 70 ? 'success' : 'outline'}>
+                {detail.match.score === null ? 'Unscored' : `${detail.match.score}% resume fit`}
+              </Badge>
+              {detail.match.score !== null ? <>
+                <p><span className="font-medium">Matches: </span>{detail.match.matched.join(', ') || 'No recognized skills in common yet'}</p>
+                <p className="text-muted-foreground"><span className="font-medium">No resume evidence: </span>{detail.match.missing.join(', ') || 'All recognized skills found'}</p>
+              </> : <p className="text-muted-foreground">{hasProfile ? 'Not enough recognized requirements to calculate a score.' : 'Choose a resume with content to see your match.'}</p>}
+              <p className="text-xs text-muted-foreground">{detail.term} · Found {formatRelativeTime(detail.firstSeenAt)} · Checked {formatRelativeTime(detail.checkedAt)}</p>
+            </section>
             {detail.match.evidence.length ? (
               <section className="mt-6 border-t border-border pt-5" aria-label="Resume evidence">
                 <h3 className="text-sm font-semibold">From your resume</h3>

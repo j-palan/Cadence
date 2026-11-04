@@ -16,7 +16,7 @@ function load(path, mocks = {}) {
 }
 const matching = load('lib/jobs/matching.ts')
 const normalize = load('lib/jobs/normalize.ts')
-const { filterJobs } = load('lib/jobs/board.ts')
+const { filterJobs, groupJobsByCompany } = load('lib/jobs/board.ts')
 const sources = load('lib/jobs/sources.ts')
 
 const profile = matching.extractProfile(String.raw`
@@ -66,6 +66,17 @@ assert.deepEqual(filterJobs(jobs, { ...filters, remote: true }).map(j => j.id), 
 assert.deepEqual(filterJobs(jobs, { ...filters, search: 'other' }).map(j => j.id), ['b'])
 assert.deepEqual(filterJobs(jobs, { ...filters, savedOnly: true }).map(j => j.id), ['c'], 'Closed saved roles remain visible')
 assert.equal(filterJobs(jobs, { ...filters, term: 'Winter 2027' }).length, 0)
+
+// A prolific employer must form one group, without losing roles or changing
+// the selected ranking within that employer.
+const manyRoles = Array.from({ length: 20 }, (_, i) => ({ ...job, id: `palantir-${i}`, company: 'Palantir', match: { score: 90 - i } }))
+const ranked = filterJobs([...manyRoles, { ...job, id: 'stripe', company: 'Stripe', match: { score: 85 } }], filters)
+const grouped = groupJobsByCompany(ranked)
+assert.deepEqual(grouped.map(group => group.company), ['Palantir', 'Stripe'])
+assert.equal(grouped[0].jobs.length, 20)
+assert.deepEqual(grouped[0].jobs.map(job => job.id), manyRoles.map(job => job.id))
+assert.equal(grouped.reduce((count, group) => count + group.jobs.length, 0), 21)
+assert.deepEqual(groupJobsByCompany([]), [])
 
 const finished = [], failed = []
 let state = []
