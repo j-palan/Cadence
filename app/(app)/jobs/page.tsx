@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'Job board' }
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
-export default async function JobsPage({ searchParams }: { searchParams: { resume?: string } }) {
+export default async function JobsPage({ searchParams }: { searchParams: { resume?: string; job?: string } }) {
   const user = await requireOnboardedUser()
   const resumes = await listResumes(user.id)
   const selected = resumes.find(resume => resume.id === searchParams.resume) ?? resumes[0]
@@ -47,6 +47,7 @@ export default async function JobsPage({ searchParams }: { searchParams: { resum
 
   return (
     <JobsBoard
+      initialJobId={postings.find(job => job.id === searchParams.job && job.available)?.id}
       jobs={postings}
       resumes={resumes.map(({ id, name }) => ({ id, name }))}
       selectedResume={selected?.id ?? ''}

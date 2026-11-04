@@ -19,6 +19,7 @@ import { filterJobs, groupJobsByCompany, type BoardJob } from '@/lib/jobs/board'
 import { formatRelativeTime } from '@/lib/utils'
 
 interface Props {
+  initialJobId?: string
   jobs: BoardJob[]
   resumes: { id: string; name: string }[]
   selectedResume: string
@@ -26,7 +27,7 @@ interface Props {
   sources: { total: number; healthy: number; lastChecked: string | null }
 }
 
-export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }: Props) {
+export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, initialJobId }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
@@ -39,7 +40,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources }
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [detailId, setDetailId] = useState<string | null>(null)
+  const [detailId, setDetailId] = useState<string | null>(initialJobId ?? null)
   const [methodOpen, setMethodOpen] = useState(false)
 
   const currentJobs = useMemo(() => jobs.map(job => ({ ...job, saved: bookmarks[job.id] ?? job.saved })), [jobs, bookmarks])

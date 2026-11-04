@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { BriefcaseBusiness } from 'lucide-react'
 
 import { EmptyState } from '@/components/dashboard/empty-state'
 import { NewResumeTile } from '@/components/dashboard/new-resume-tile'
 import { ResumeCard } from '@/components/dashboard/resume-card'
+import { JobBoardPreview, JobBoardPreviewLoading } from '@/components/dashboard/job-board-preview'
 import { Button } from '@/components/ui/button'
 import { requireOnboardedUser } from '@/lib/auth-guards'
 import { listResumes } from '@/lib/db/queries'
@@ -77,6 +79,9 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
+      <Suspense fallback={<JobBoardPreviewLoading />}>
+        <JobBoardPreview userId={user.id} resume={mostRecent} />
+      </Suspense>
     </main>
   )
 }
