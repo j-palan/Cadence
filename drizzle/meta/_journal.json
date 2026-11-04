@@ -29,6 +29,13 @@
       "when": 1789861474845,
       "tag": "0003_fast_anthem",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793758434771,
+      "tag": "0004_cooing_edwin_jarvis",
+      "breakpoints": true
     }
   ]
 }

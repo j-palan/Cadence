@@ -1,7 +1,7 @@
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, sql, gt } from 'drizzle-orm'
 
 import { db } from './index'
-import { logImports, resumes, users } from './schema'
+import { logImports, resumes, users, jobs, jobSources, savedJobs } from './schema'
 import type { LogImport, Resume, User } from './schema'
 
 export class DuplicateResumeNameError extends Error {
@@ -298,4 +298,60 @@ export async function getLatestLogImport(
     .orderBy(desc(logImports.importedAt))
     .limit(1)
   return row ?? null
+}
+
+// ---- Jobs ----
+// Jobs/source status are explicitly public, shared data. `null` is the system
+// principal for the authenticated scheduler; it can only access public feeds.
+// Every function that reads/writes private bookmarks still requires a userId.
+export async function claimJobSource(_principal: null, sourceId: string, refreshMs: number) {
+  const now = new Date()
+  const [row] = await db.insert(jobSources).values({ id: sourceId, attemptedAt: now, leaseUntil: new Date(now.getTime() + 120000) })
+    .onConflictDoUpdate({ target: jobSources.id,
+      set: { attemptedAt: now, leaseUntil: new Date(now.getTime() + 120000) },
+      setWhere: sql`${jobSources.leaseUntil} < ${now} AND ${jobSources.attemptedAt} < ${new Date(now.getTime() - 15 * 60000)} AND (${jobSources.checkedAt} IS NULL OR ${jobSources.checkedAt} < ${new Date(now.getTime() - refreshMs)})`,
+    }).returning()
+  return row ?? null
+}
+export async function finishJobSource(_principal: null, sourceId: string, checkedAt: Date, postings: (typeof jobs.$inferInsert)[]) {
+  // A single transaction publishes the complete snapshot, including an empty
+  // successful feed. Failures never close listings. The source lease prevents
+  // overlapping refreshes of the same employer.
+  const reset = db.update(jobs).set({ active: false }).where(eq(jobs.sourceId, sourceId))
+  const finish = db.update(jobSources).set({ checkedAt, error: null, leaseUntil: checkedAt }).where(eq(jobSources.id, sourceId))
+  if (!postings.length) { await db.batch([reset, finish]); return }
+  await db.batch([reset, db.insert(jobs).values(postings).onConflictDoUpdate({ target: jobs.id, set: {
+    title: sql`excluded.title`, location: sql`excluded.location`, countries: sql`excluded.countries`,
+    remote: sql`excluded.remote`, term: sql`excluded.term`, description: sql`excluded.description`,
+    url: sql`excluded.url`, checkedAt, active: true,
+  } }), finish])
+}
+export async function failJobSource(_principal: null, sourceId: string) {
+  await db.update(jobSources).set({ error: 'Employer feed unavailable. Will retry.', leaseUntil: new Date() }).where(eq(jobSources.id, sourceId))
+}
+export async function listJobSources(_principal: string | null) {
+  return db.select().from(jobSources)
+}
+export async function listJobs(userId: string) {
+  // Include closed/stale saved roles so they do not disappear from a user's list.
+  const fresh = new Date(Date.now() - 48 * 3600000)
+  return db.select({ job: jobs, savedAt: savedJobs.createdAt }).from(jobs)
+    .leftJoin(savedJobs, and(eq(savedJobs.jobId, jobs.id), eq(savedJobs.userId, userId)))
+    .where(sql`(${jobs.active} = true AND ${jobs.checkedAt} > ${fresh}) OR ${savedJobs.userId} = ${userId}`)
+    .orderBy(desc(jobs.firstSeenAt)).limit(1000)
+}
+export async function getJob(_userId: string, jobId: string) {
+  const [row] = await db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1)
+  return row ?? null
+}
+export async function saveJob(userId: string, jobId: string, saved: boolean) {
+  if (!saved) {
+    await db.delete(savedJobs).where(and(eq(savedJobs.userId, userId), eq(savedJobs.jobId, jobId)))
+    return true
+  }
+  // Save only listings that are still fresh and open.
+  const [job] = await db.select({ id: jobs.id }).from(jobs).where(and(eq(jobs.id, jobId), eq(jobs.active, true), gt(jobs.checkedAt, new Date(Date.now() - 48 * 3600000)))).limit(1)
+  if (!job) return false
+  await db.insert(savedJobs).values({ userId, jobId }).onConflictDoNothing()
+  return true
 }

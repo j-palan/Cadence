@@ -60,6 +60,7 @@ type SaveState = 'saved' | 'dirty' | 'saving' | 'error'
 type CompileState = 'idle' | 'compiling' | 'ok' | 'failed' | 'unavailable'
 
 export interface ResumeEditorProps {
+  initialJobDescription?: string
   resume: {
     id: string
     name: string
@@ -76,6 +77,7 @@ export function ResumeEditor({
   resume,
   lastLogImportedAt,
   aiSettings: initialAiSettings,
+  initialJobDescription,
 }: ResumeEditorProps) {
   const [source, setSource] = useState(resume.latexSource)
   const [name, setName] = useState(resume.name)
@@ -86,7 +88,7 @@ export function ResumeEditor({
   const [log, setLog] = useState('')
   const [notice, setNotice] = useState<string | null>('Compiling for the first time…')
   const [logOpen, setLogOpen] = useState(false)
-  const [tailorOpen, setTailorOpen] = useState(false)
+  const [tailorOpen, setTailorOpen] = useState(!!initialJobDescription)
   const [tailorError, setTailorError] = useState<string | null>(null)
   const [updateOpen, setUpdateOpen] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
@@ -650,6 +652,7 @@ export function ResumeEditor({
       />
 
       <TailorDialog
+        initialText={initialJobDescription}
         open={tailorOpen}
         onOpenChange={(next) => {
           setTailorOpen(next)

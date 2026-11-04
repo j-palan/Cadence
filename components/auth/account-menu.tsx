@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Settings, User as UserIcon } from 'lucide-react'
+import { BriefcaseBusiness, Home, Settings, User as UserIcon } from 'lucide-react'
 
 import { SignOutItem } from '@/components/auth/sign-out-item'
 import {
@@ -55,6 +55,14 @@ export function AccountMenu({
             Home page
           </Link>
         </DropdownMenuItem>
+        {showSettings ? (
+          <DropdownMenuItem asChild>
+            <Link href="/jobs">
+              <BriefcaseBusiness />
+              SWE internships
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         {showSettings ? (
           <DropdownMenuItem asChild>
             <Link href={settingsHref}>

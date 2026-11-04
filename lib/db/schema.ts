@@ -136,3 +136,36 @@ export const logImports = pgTable(
 export type User = typeof users.$inferSelect
 export type Resume = typeof resumes.$inferSelect
 export type LogImport = typeof logImports.$inferSelect
+
+// Public employer data is shared; bookmarks remain scoped to their owner.
+export const jobSources = pgTable('job_sources', {
+  id: text('id').primaryKey(),
+  checkedAt: timestamp('checked_at'),
+  attemptedAt: timestamp('attempted_at').notNull().defaultNow(),
+  leaseUntil: timestamp('lease_until').notNull().defaultNow(),
+  error: text('error'),
+})
+
+export const jobs = pgTable('jobs', {
+  id: text('id').primaryKey(),
+  sourceId: text('source_id').notNull().references(() => jobSources.id),
+  company: text('company').notNull(),
+  title: text('title').notNull(),
+  location: text('location').notNull(),
+  countries: text('countries').array().notNull(),
+  remote: boolean('remote').notNull().default(false),
+  term: text('term').notNull(),
+  description: text('description').notNull(),
+  url: text('url').notNull(),
+  firstSeenAt: timestamp('first_seen_at').notNull().defaultNow(),
+  checkedAt: timestamp('checked_at').notNull().defaultNow(),
+  active: boolean('active').notNull().default(true),
+}, (t) => ({ sourceIdx: index('jobs_source_idx').on(t.sourceId), activeIdx: index('jobs_active_idx').on(t.active, t.checkedAt) }))
+
+export const savedJobs = pgTable('saved_jobs', {
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({ pk: primaryKey({ columns: [t.userId, t.jobId] }) }))
+
+export type Job = typeof jobs.$inferSelect

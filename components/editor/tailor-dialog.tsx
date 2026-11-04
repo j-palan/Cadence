@@ -32,14 +32,16 @@ export function TailorDialog({
   onSubmit,
   pending,
   error,
+  initialText = '',
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSubmit: (jobDescription: string, customInstructions: string) => void
   pending: boolean
   error: string | null
+  initialText?: string
 }) {
-  const [text, setText] = useState('')
+  const [text, setText] = useState(initialText)
   const [instructions, setInstructions] = useState('')
   const tooShort = text.trim().length < MIN_CHARS
 
