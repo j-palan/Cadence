@@ -16,7 +16,7 @@ function load(path, mocks = {}) {
 }
 const matching = load('lib/jobs/matching.ts')
 const normalize = load('lib/jobs/normalize.ts')
-const { filterJobs, groupJobsByCompany } = load('lib/jobs/board.ts')
+const { filterJobs, groupJobsByCompany } = load('lib/jobs/board.ts', { './normalize': normalize })
 const sources = load('lib/jobs/sources.ts')
 
 const profile = matching.extractProfile(String.raw`
@@ -53,6 +53,17 @@ assert.deepEqual(normalize.countriesFor('San Francisco, CA'), ['US'])
 assert.deepEqual(normalize.countriesFor('London, United Kingdom'), [])
 assert.deepEqual(normalize.countriesFor('Remote'), [], 'Geographically unspecified remote jobs are excluded')
 assert.equal(normalize.internshipTerm('Software Intern (Summer 2027)'), 'Summer 2027')
+assert.deepEqual(normalize.internshipTerms('Winter 2027'), ['Winter'])
+assert.deepEqual(normalize.internshipTerms('Spring 2027'), ['Winter'])
+assert.deepEqual(normalize.internshipTerms('Summer or Winter'), ['Winter', 'Summer'])
+assert.deepEqual(normalize.internshipTerms('January – April'), ['Winter'])
+assert.deepEqual(normalize.internshipTerms('May to August'), ['Summer'])
+assert.deepEqual(normalize.internshipTerms('September through December'), ['Fall'])
+assert.deepEqual(normalize.internshipTerms('March–June'), ['Winter', 'Summer'])
+assert.deepEqual(normalize.internshipTerms('January–December'), ['Winter', 'Summer', 'Fall'])
+assert.deepEqual(normalize.internshipTerms('September–April'), ['Winter', 'Fall'])
+assert.deepEqual(normalize.jobTerms({ title: 'Software Intern', term: '2027', description: 'The internship runs from May to August.' }), ['Summer'])
+assert.deepEqual(normalize.jobTerms({ title: 'Software Intern', term: '2027', description: 'Our company was founded in September.' }), [])
 assert.equal(normalize.safeJobUrl('javascript:alert(1)'), null)
 assert.equal(normalize.safeJobUrl('http://jobs.example.com'), null)
 assert.equal(normalize.plainText('&amp;lt;p&amp;gt;Python &amp;amp; React&amp;lt;/p&amp;gt;'), 'Python & React')
@@ -65,7 +76,11 @@ assert.deepEqual(filterJobs(jobs, { ...filters, country: 'CA' }).map(j => j.id),
 assert.deepEqual(filterJobs(jobs, { ...filters, remote: true }).map(j => j.id), ['b'])
 assert.deepEqual(filterJobs(jobs, { ...filters, search: 'other' }).map(j => j.id), ['b'])
 assert.deepEqual(filterJobs(jobs, { ...filters, savedOnly: true }).map(j => j.id), ['c'], 'Closed saved roles remain visible')
-assert.equal(filterJobs(jobs, { ...filters, term: 'Winter 2027' }).length, 0)
+assert.equal(filterJobs(jobs, { ...filters, term: 'Winter' }).length, 0)
+assert.equal(filterJobs(jobs, { ...filters, term: 'Summer' }).length, 2)
+const multiTerm = { ...job, title: 'Software Intern — Summer or Winter', term: 'Summer 2027' }
+assert.equal(filterJobs([multiTerm], { ...filters, term: 'Winter' }).length, 1)
+assert.equal(filterJobs([multiTerm], { ...filters, term: 'Summer' }).length, 1)
 
 // A prolific employer must form one group, without losing roles or changing
 // the selected ranking within that employer.

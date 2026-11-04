@@ -30,3 +30,41 @@ export function internshipTerm(text: string): string {
 export function safeJobUrl(value: string): string | null {
   try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password ? url.toString() : null } catch { return null }
 }
+
+export const INTERNSHIP_TERMS = [
+  { value: 'Winter', label: 'Winter (Jan–Apr)' },
+  { value: 'Summer', label: 'Summer (May–Aug)' },
+  { value: 'Fall', label: 'Fall (Sep–Dec)' },
+] as const
+export type InternshipTerm = typeof INTERNSHIP_TERMS[number]['value']
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+const MONTH_PATTERN = '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)'
+
+export function internshipTerms(text: string): InternshipTerm[] {
+  const found = new Set<InternshipTerm>()
+  if (/\b(winter|spring)\b/i.test(text)) found.add('Winter')
+  if (/\bsummer\b/i.test(text)) found.add('Summer')
+  if (/\b(fall|autumn)\b/i.test(text)) found.add('Fall')
+  // Named seasons are stronger evidence than incidental month mentions.
+  if (!found.size) {
+    const addMonth = (month: number) => found.add(INTERNSHIP_TERMS[Math.floor(month / 4)].value)
+    for (const match of text.matchAll(new RegExp(`\\b${MONTH_PATTERN}\\b`, 'gi'))) addMonth(MONTHS.indexOf(match[0].slice(0, 3).toLowerCase()))
+    for (const match of text.matchAll(new RegExp(`\\b(${MONTH_PATTERN})\\.?\\s*(?:20\\d{2}\\s*)?(?:[-–—]|to|through|until)\\s*(${MONTH_PATTERN})\\b`, 'gi'))) {
+      const start = MONTHS.indexOf(match[1].slice(0, 3).toLowerCase())
+      let end = MONTHS.indexOf(match[2].slice(0, 3).toLowerCase())
+      if (end < start) end += 12
+      for (let month = start; month <= end; month++) addMonth(month % 12)
+    }
+  }
+  return INTERNSHIP_TERMS.map(term => term.value).filter(term => found.has(term))
+}
+
+export function jobTerms(job: { title: string; term: string; description?: string }): InternshipTerm[] {
+  const titled = internshipTerms(job.title)
+  if (titled.length) return titled
+  const stored = internshipTerms(job.term)
+  if (stored.length) return stored
+  // Avoid inferring terms from unrelated company-history or benefits dates.
+  const schedule = (job.description ?? '').split(/[\n.!?]+/).filter(line => /\b(internship|co.op|program|start|begin|term|dates|availability|available|from|between)\b/i.test(line)).join('\n')
+  return internshipTerms(schedule)
+}

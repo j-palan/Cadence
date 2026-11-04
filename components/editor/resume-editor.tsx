@@ -494,10 +494,9 @@ export function ResumeEditor({
   return (
     <div className="flex h-[calc(100dvh-4rem-1px)] flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-border bg-background px-4 py-2.5">
-        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
-          <Link href="/dashboard" aria-label="Back to dashboard">
-            <ArrowLeft />
-          </Link>
+        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Back to previous page"
+          onClick={() => { if (window.history.length > 1) router.back(); else router.push(initialJobDescription ? '/jobs' : '/dashboard') }}>
+          <ArrowLeft aria-hidden="true" />
         </Button>
 
         <Input

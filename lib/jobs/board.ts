@@ -1,4 +1,5 @@
 import type { Match } from './matching'
+import { jobTerms } from './normalize'
 
 export interface BoardJob {
   id: string
@@ -31,7 +32,7 @@ export function filterJobs(jobs: BoardJob[], filters: BoardFilters): BoardJob[] 
   return jobs.filter(job =>
     (filters.savedOnly ? job.saved : job.available)
     && (filters.country === 'all' || job.countries.includes(filters.country))
-    && (filters.term === 'all' || job.term === filters.term)
+    && (filters.term === 'all' || jobTerms(job).some(term => term === filters.term))
     && (!filters.remote || job.remote)
     && `${job.company} ${job.title} ${job.location}`.toLowerCase().includes(query),
   ).sort((a, b) => {

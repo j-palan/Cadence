@@ -13,10 +13,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { InstantTooltip } from '@/components/ui/instant-tooltip'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CompanyAvatar } from '@/components/jobs/company-avatar'
 import { filterJobs, groupJobsByCompany, type BoardJob } from '@/lib/jobs/board'
 import { formatRelativeTime } from '@/lib/utils'
+import { INTERNSHIP_TERMS, jobTerms } from '@/lib/jobs/normalize'
 
 interface Props {
   initialJobId?: string
@@ -43,11 +45,10 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
   const [detailId, setDetailId] = useState<string | null>(initialJobId ?? null)
   const [methodOpen, setMethodOpen] = useState(false)
 
-  const currentJobs = useMemo(() => jobs.map(job => ({ ...job, saved: bookmarks[job.id] ?? job.saved })), [jobs, bookmarks])
+  const currentJobs = useMemo(() => jobs.map(job => ({ ...job, term: jobTerms(job).join(' / ') || 'Not specified', saved: bookmarks[job.id] ?? job.saved })), [jobs, bookmarks])
   const filtered = useMemo(() => filterJobs(currentJobs, { search, country, term, remote, savedOnly: tab === 'saved', sort }), [currentJobs, search, country, term, remote, tab, sort])
   const companies = useMemo(() => groupJobsByCompany(filtered), [filtered])
   const detail = currentJobs.find(job => job.id === detailId)
-  const terms = Array.from(new Set(jobs.map(job => job.term))).sort()
 
   async function toggleSave(job: BoardJob) {
     setSaving(job.id)
@@ -76,17 +77,19 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
           </a>
         </Button>
         {selectedResume && job.available ? (
+          <InstantTooltip label="Tailor your resume for this role">
           <Button asChild variant={compact ? 'ghost' : 'outline'} size={compact ? 'icon' : 'default'} className={compact ? 'h-9 w-9 shrink-0 gap-0 p-0' : undefined}>
-            <Link href={`/resume/${selectedResume}?job=${encodeURIComponent(job.id)}`} title="Tailor your resume for this role">
+            <Link href={`/resume/${selectedResume}?job=${encodeURIComponent(job.id)}`}>
               <Target aria-hidden="true" /><span className={compact ? 'sr-only' : ''}>Tailor resume{compact ? ` for ${job.title} at ${job.company}` : ''}</span>
             </Link>
           </Button>
+          </InstantTooltip>
         ) : null}
+        <InstantTooltip label={job.saved ? 'Unsave role' : 'Save role'}>
         <Button
           variant="ghost"
           size={compact ? 'icon' : 'default'}
           className={compact ? 'h-9 w-9 shrink-0 gap-0 p-0' : undefined}
-          title={job.saved ? 'Unsave role' : 'Save role'}
           disabled={saving !== null || (!job.available && !job.saved)}
           aria-pressed={job.saved}
           aria-label={`${job.saved ? 'Unsave' : 'Save'} ${job.title} at ${job.company}`}
@@ -95,6 +98,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
           {saving === job.id ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Bookmark aria-hidden="true" className={job.saved ? 'fill-current' : ''} />}
           <span className={compact ? 'sr-only' : ''}>{job.saved ? 'Saved' : 'Save'}</span>
         </Button>
+        </InstantTooltip>
       </>
     )
   }
@@ -105,12 +109,8 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
         <Link href="/dashboard"><ArrowLeft aria-hidden="true" />Back to resumes</Link>
       </Button>
       <header>
-        <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Your next role</p>
-        <h1 className="text-display-sm mt-2">Job board</h1>
-        <p className="mt-3 text-sm text-muted-foreground">Software engineering internships · US and Canada · Matched to your resume</p>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Checked every 3 hours{sources.lastChecked ? ` · Last checked ${formatRelativeTime(sources.lastChecked)}` : ''}
-        </p>
+        <h1 className="text-display-sm">Job board</h1>
+        <p className="mt-3 text-sm text-muted-foreground">Find internships that fit your resume.</p>
       </header>
 
       <Card className="mt-6">
@@ -137,7 +137,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
             <div className="space-y-1.5">
               <Label htmlFor="job-term" className="text-xs text-muted-foreground">Internship term</Label>
               <Select id="job-term" value={term} onChange={event => setTerm(event.target.value)}>
-                <option value="all">All terms</option>{terms.map(value => <option key={value}>{value}</option>)}
+                <option value="all">All terms</option>{INTERNSHIP_TERMS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
               </Select>
             </div>
             <div className="space-y-1.5">
@@ -290,6 +290,7 @@ export function JobsBoard({ jobs, resumes, selectedResume, hasProfile, sources, 
             <p>Missing evidence means a skill wasn’t found in this resume. Scores don’t assess proficiency or represent an employer’s ATS score.</p>
             <p>Graduation date, work authorization, and availability are unverified. Review the employer’s requirements before applying.</p>
             <p>After saving changes in the editor, return here and refresh matches to update your scores. Scoring runs without an API key; AI tailoring uses your connected model.</p>
+            <p className="text-xs">Employer feeds refresh every 3 hours{sources.lastChecked ? ` · Last checked ${formatRelativeTime(sources.lastChecked)}` : ''}.</p>
           </div>
         </DialogContent>
       </Dialog>

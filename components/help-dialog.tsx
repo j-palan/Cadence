@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { HelpCircle } from 'lucide-react'
+import { InstantTooltip } from '@/components/ui/instant-tooltip'
 
 import {
   Dialog,
@@ -42,15 +43,16 @@ export function HelpDialog() {
 
   return (
     <>
+      <InstantTooltip label="How to use">
       <button
         type="button"
         aria-label="How to use Cadence"
-        title="How to use"
         className="inline-flex items-center gap-1.5 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         onClick={() => setOpen(true)}
       >
         <HelpCircle aria-hidden="true" className="h-3 w-3" />
       </button>
+      </InstantTooltip>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
